@@ -1,7 +1,7 @@
 # 数据库系统原理课程设计 · 14 组
 
-> 项目根 `AGENTS.md`：给 AI 助手与组员共用的项目约定。**当前状态：选题、功能清单、技术栈均已定案；表结构与页面待阶段 1–4 回填。**
-> 最后更新：2026-10-29（技术栈定案：Django + AdminLTE 3.2）
+> 项目根 `AGENTS.md`：给 AI 助手与组员共用的项目约定。**当前状态：选题、功能清单、技术栈均已定案；第一次提交件（xlsx + 截图 + Word）已产出待上传；表结构与页面待阶段 1–4 回填。**
+> 最后更新：2026-10-29（第一次提交件产出）
 
 ## 1 项目事实（已确认）
 
@@ -12,7 +12,7 @@
 - 指导教师：郭际香（见 `docs/报告封面文档.doc`）
 - 技术栈（已定案 2026-10-29，不再改）：**PostgreSQL 18 + Django 6.1 + Bootstrap 4.6（AdminLTE 3.2 模板 + 服务端模板渲染）**
 - 运行时（本机实测）：Python 3.12.7（`D:\anaconda3\python.exe`）、Django 6.1.2、psycopg2 2.9.13、PostgreSQL 18（服务 `postgresql-x64-18` 运行中）
-- 项目名称：**酒店房间预订与入住管理系统**
+- 项目名称（题目）：**云栖酒店客房预订与入住管理系统**（2026-10-29 定名；对应教师给定方案六原题名「酒店房间预订与入住管理系统」）
 - 选题（已定案）：给定方案六，决策过程见 `docs/方案对比-六方案评估.md`、`docs/自定选题候选.md`
 - 数据库：PostgreSQL 18，库名 `hotel_db`，端口 `5432`，编码 UTF8，时区 Asia/Shanghai
 - 角色：客户（customer）、前台工作人员（receptionist）、管理员（admin）
@@ -39,7 +39,15 @@ database-course-project/
 │  ├─ 03-实施计划.md            里程碑/WBS/风险/测试验收（已建）
 │  ├─ 04-报告撰写规范.md        6 章大纲与版式参数（待写）
 │  └─ 2026学年…docx / 报告封面文档.doc   教师下发原件，只读
-├─ tools/                       docx/doc 解析脚本（dump_docx.py、doc_extract.py）
+├─ tools/                       docx/doc 解析 + 交付件生成脚本
+│  ├─ dump_docx.py / doc_extract.py  读教师原件
+│  ├─ build_submission_xlsx.py 生成功能清单 Excel
+│  ├─ build_submission_docx.py 生成 Word 汇总（内嵌截图）
+│  └─ verify_submission.py     两个交付件的结构与版式自检
+├─ deliverables/                对外交付件（第一次提交）
+│  ├─ 第14组_云栖酒店客房预订与入住管理系统.docx
+│  ├─ 第14组_云栖酒店客房预订与入住管理系统_功能清单.xlsx
+│  └─ images/功能清单截图.png   300 dpi 表格截图，Word 内嵌源
 ├─ work/                        脚本中间产物（可清理）
 ├─ sql/                         待建：01_schema / 02_constraints / 03_seed / 04_queries
 └─ src/                         待建：Django 工程（manage.py、config/、core/、templates/、static/）
@@ -102,7 +110,8 @@ database-course-project/
 ## 7 待定（TODO）
 
 ### 已定案（留档，勿再讨论）
-- [x] 选题：给定方案六 → 酒店房间预订与入住管理系统
+- [x] 选题：给定方案六（酒店房间预订与入住管理系统）→ 本组题目定名 **云栖酒店客房预订与入住管理系统**
+- [x] 第一次提交件：功能清单 xlsx（9 行 × 5 列，无脚注行）+ 300 dpi 截图 + Word 汇总（A4 两页）→ `deliverables/`，`verify_submission.py` 全绿
 - [x] 项目描述、角色清单、9 项功能与异常清单 → `docs/01-功能清单.md`
 - [x] 技术栈：PostgreSQL 18 + Django 6.1 + AdminLTE 3.2（服务端模板渲染，单进程 8000）
 - [x] 区间排他约束落地方式：生成列 `during` + `EXCLUDE USING gist`（见 §4.1）
