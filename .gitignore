@@ -1,0 +1,32 @@
+# ---- 系统与编辑器 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# ---- Django ----
+src/db.sqlite3
+src/staticfiles/
+
+# ---- 脚本中间产物 ----
+work/
+deliverables/docx-preview/
+deliverables/images/manifest.json
+deliverables/*/manifest.json
+
+# ---- Office 临时文件 ----
+~$*.docx
+~$*.xlsx
+~$*.pptx
+*.tmp
