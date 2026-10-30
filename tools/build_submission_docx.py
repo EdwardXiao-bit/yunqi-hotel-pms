@@ -122,15 +122,9 @@ normal.element.rPr.rFonts.set(qn("w:eastAsia"), "宋体")
 p = doc.add_paragraph()
 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 p.paragraph_format.space_before = Pt(6)
-p.paragraph_format.space_after = Pt(6)
+p.paragraph_format.space_after = Pt(24)
 p.paragraph_format.line_spacing = Pt(30)
 set_run_font(p.add_run(PROJECT), cn="黑体", size=18, bold=True)
-
-p = doc.add_paragraph()
-p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-p.paragraph_format.space_after = Pt(18)
-p.paragraph_format.line_spacing = Pt(20)
-set_run_font(p.add_run("数据库系统原理课程设计 · 第 14 组 · 第一次提交材料"), cn="宋体", size=12)
 
 # ---- 一、项目名称 ----
 h1(doc, "一、项目名称")
