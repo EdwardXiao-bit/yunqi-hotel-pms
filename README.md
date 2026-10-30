@@ -63,7 +63,7 @@ ALTER TABLE reservation
 
 共 9 项功能（课程要求 5–10 项），F01–F08 为本期必做（P0），F09 为增强项（P1）。
 
-![功能清单](deliverables/images/功能清单截图.png)
+![功能清单](deliverables/images/feature-list.png)
 
 | 编号 | 功能名称 | 所属角色 | 优先级 |
 | --- | --- | --- | --- |
@@ -110,7 +110,7 @@ database-course-project/
 ├─ deliverables/                对外交付件（第一次提交）
 │  ├─ 第14组_云栖酒店客房预订与入住管理系统.docx
 │  ├─ 第14组_云栖酒店客房预订与入住管理系统_功能清单.xlsx
-│  └─ images/功能清单截图.png   300 dpi 表格截图
+│  └─ images/feature-list.png   300 dpi 表格截图
 ├─ tools/                       文档解析与交付件生成脚本
 ├─ sql/                         （待建）01_schema / 02_constraints / 03_seed / 04_queries
 └─ src/                         （待建）Django 工程

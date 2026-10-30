@@ -47,7 +47,7 @@ database-course-project/
 ├─ deliverables/                对外交付件（第一次提交）
 │  ├─ 第14组_云栖酒店客房预订与入住管理系统.docx
 │  ├─ 第14组_云栖酒店客房预订与入住管理系统_功能清单.xlsx
-│  └─ images/功能清单截图.png   300 dpi 表格截图，Word 内嵌源
+│  └─ images/feature-list.png   300 dpi 表格截图，Word 内嵌源
 ├─ work/                        脚本中间产物（可清理）
 ├─ sql/                         待建：01_schema / 02_constraints / 03_seed / 04_queries
 └─ src/                         待建：Django 工程（manage.py、config/、core/、templates/、static/）
@@ -116,10 +116,11 @@ database-course-project/
 - [x] 技术栈：PostgreSQL 18 + Django 6.1 + AdminLTE 3.2（服务端模板渲染，单进程 8000）
 - [x] 区间排他约束落地方式：生成列 `during` + `EXCLUDE USING gist`（见 §4.1）
 - [x] 排期与分工 → `docs/03-实施计划.md`
+- [x] 远端仓库：`https://github.com/EdwardXiao-bit/database-course-project`（main 已推送 README / 文档 / 交付件）
+- [x] 仓库清理（2026-10-30）：截图改名 `deliverables/images/feature-list.png`（ASCII，避免非中文环境编码问题），删除早期 Word COM 实验脚本 `tools/convert_doc.ps1`，清掉旧项目名的过期交付件
 
 ### 仍需确认
 - [ ] **两人学号**（封面「学生学号」与页脚必填）—— 阻塞报告成稿
 - [ ] **报告第 6 章分工占比百分比**（按工作量排序，两人合计 100%）
-- [ ] `git init` 谁做、是否建远端私有仓库（目前尚未初始化）
 - [ ] 第 15–16 周的**具体日期**（按校历补进 `docs/03` 里程碑后平移排期）
 - [ ] 11-12 提交件是否需附**项目描述之外的补充说明**（教师未要求，默认不附）

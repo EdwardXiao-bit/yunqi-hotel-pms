@@ -17,7 +17,7 @@ from docx.shared import Cm, Pt, RGBColor
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "deliverables")
 OUT = os.path.join(OUT_DIR, "第14组_云栖酒店客房预订与入住管理系统.docx")
-IMG = os.path.join(OUT_DIR, "images", "功能清单截图.png")
+IMG = os.path.join(OUT_DIR, "images", "feature-list.png")
 
 PROJECT = "云栖酒店客房预订与入住管理系统"
 
