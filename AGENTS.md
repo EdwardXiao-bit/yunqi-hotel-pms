@@ -40,6 +40,7 @@ yunqi-hotel-pms/
 │  ├─ 02-数据库设计.md          ER/关系、11 表结构、约束与索引、触发器与视图、数据样例（已建 2026-10-30）
 │  ├─ 03-实施计划.md            里程碑/WBS/风险/测试验收（已建）
 │  ├─ 04-报告撰写规范.md        6 章大纲与版式参数（待写）
+│  ├─ 05-查询结果与测试记录.md   04_queries 的实测结果，报告 4 章素材（已建 2026-10-30）
 │  └─ 2026学年…docx / 报告封面文档.doc   教师下发原件，只读
 ├─ tools/                       docx/doc 解析 + 交付件生成脚本
 │  ├─ dump_docx.py / doc_extract.py  读教师原件
@@ -52,7 +53,7 @@ yunqi-hotel-pms/
 │  ├─ 第14组_酒店客房预订与入住管理系统_功能清单.xlsx
 │  └─ images/feature-list.png   300 dpi 表格截图，Word 内嵌源
 ├─ work/                        脚本中间产物（可清理）
-├─ sql/                         已建：00_database / 01_schema / 02_constraints / 03_seed；待建：04_queries
+├─ sql/                         00_database / 01_schema / 02_constraints / 03_seed / 04_queries 均已实跑
 └─ src/                         待建：Django 工程（manage.py、config/、core/、templates/、static/）
 ```
 
@@ -128,6 +129,7 @@ yunqi-hotel-pms/
 - [x] 方案对比文档归档（2026-10-30）：补第 0 节定案记录（选方案六）并填完 §6 决策清单，§1 原判断标注为留档
 - [x] 数据库设计文档与建库脚本（2026-10-30）：`docs/02-数据库设计.md` 已建（ER/关系、11 表结构、约束清单、索引、触发器/视图/函数、边界用例 B1–B9、数据样例规划、Django 衔接）；`sql/00`、`01_schema.sql`、`02_constraints.sql`、`03_seed.sql` 全部 **psql 实跑通过**（11 表、2 条 EXCLUDE、8 触发器、2 视图、2 函数；DO 块实测 23P01；种子 60 预订/30 入住/60 支付、overlap_pairs = 0）；`sql/03_seed.sql` 由 `tools/build_seed_sql.py` 生成（种子 20261030，可复现）
 - [x] 约束命名统一（2026-10-30）：排他约束改 `ex_reservation_room_overlap` / `ex_rate_plan_no_overlap`（原 `docs/01` 的 `ex_room_date_overlap` 已对齐）；`docs/01` §8 可用房查询改用生成列 `during`
+- [x] 查询脚本与实测记录（2026-10-30）：`sql/04_queries.sql`（Q1–Q8）**psql 实跑通过**；结果落 `work/04_queries_out.txt`（纯 UTF-8）并整理成 `docs/05-查询结果与测试记录.md`（报告第 4 章素材：Q1 可用房 34 间、Q2 客户 11 条、Q3 30 行入住率、Q4 15 行营收、Q5 房型 Top3、Q6 7 间长期空闲与取消率、Q7 视图余额、Q8 实测 23P01）
 
 ### 仍需确认
 - [ ] **两人学号**（封面“学生学号”与页脚必填）—— 阻塞报告成稿
