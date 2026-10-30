@@ -46,7 +46,7 @@ yunqi-hotel-pms/
 │  ├─ dump_docx.py / doc_extract.py  读教师原件
 │  ├─ build_submission_xlsx.py 生成功能清单 Excel
 │  ├─ build_submission_docx.py 生成 Word 汇总（内嵌截图）
-│  ├─ build_seed_sql.py        生成 sql/03_seed.sql（60 预订/30 入住/60 支付，含冲突自检）
+│  ├─ build_seed_sql.py        生成 sql/03_seed.sql（30 客户/96 预订/48 入住/96 支付/57 服务明细，含冲突自检）
 │  └─ verify_submission.py     两个交付件的结构与版式自检
 ├─ deliverables/                对外交付件（第一次提交）
 │  ├─ 第14组_酒店客房预订与入住管理系统.docx      文件名按给定方案名（内部项目名为云栖…）
@@ -123,17 +123,17 @@ yunqi-hotel-pms/
 - [x] 排期与分工 → `docs/03-实施计划.md`
 - [x] 远端仓库：`https://github.com/EdwardXiao-bit/yunqi-hotel-pms`（main 已推送 README / 文档 / 交付件）
 - [x] 仓库清理（2026-10-30）：截图改名 `deliverables/images/feature-list.png`（ASCII，避免非中文环境编码问题），删除早期 Word COM 实验脚本 `tools/convert_doc.ps1`，清掉旧项目名的过期交付件
-- [x] 数据库表数口径（2026-10-30 统一）：**9 张必选 + 2 张可选**（可选为 `service_item` / `service_order`）；`docs/01` §1 与 §7、`docs/03` §1、README §9 四处已对齐
+- [x] 数据库表数口径（2026-10-30 定，10-30 晚改口径）：**11 张正式表**（原「9 必选 + 2 可选」表述作废，`service_item` / `service_order` 已实现并接入 F07 结算）；`docs/01` §1 与 §7、`docs/02` §2/§5/§6.10-6.11、`docs/03` §1、README §5 与 §9 全部对齐
 - [x] 角色与功能编号（2026-10-30 修正）：删掉笔误 F10；客户 F03/F04/F05、前台 F02/F05/F06/F07/F08、管理员 F01–F09（超级管理员）
 - [x] WBS 人日（2026-10-30 修正）：T1–T17 明细相加 **28.5 人日**（原文“26.5”有误）；折算胡宇书 57% / 肖铭皓 43%，见 `docs/03` §3 人日与占比表
 - [x] 方案对比文档归档（2026-10-30）：补第 0 节定案记录（选方案六）并填完 §6 决策清单，§1 原判断标注为留档
-- [x] 数据库设计文档与建库脚本（2026-10-30）：`docs/02-数据库设计.md` 已建（ER/关系、11 表结构、约束清单、索引、触发器/视图/函数、边界用例 B1–B9、数据样例规划、Django 衔接）；`sql/00`、`01_schema.sql`、`02_constraints.sql`、`03_seed.sql` 全部 **psql 实跑通过**（11 表、2 条 EXCLUDE、8 触发器、2 视图、2 函数；DO 块实测 23P01；种子 60 预订/30 入住/60 支付、overlap_pairs = 0）；`sql/03_seed.sql` 由 `tools/build_seed_sql.py` 生成（种子 20261030，可复现）
+- [x] 数据库设计文档与建库脚本（2026-10-30）：`docs/02-数据库设计.md` 已建（ER/关系、11 表结构、约束清单、索引、触发器/视图/函数、边界用例 B1–B9、数据样例规划、Django 衔接）；`sql/00`、`01_schema.sql`、`02_constraints.sql`、`03_seed.sql` 全部 **psql 实跑通过**（11 表、2 条 EXCLUDE、8 触发器、2 视图、2 函数；DO 块实测 23P01；`overlap_pairs = 0`）；`sql/03_seed.sql` 由 `tools/build_seed_sql.py` 生成（种子 20261030，可复现）
 - [x] 约束命名统一（2026-10-30）：排他约束改 `ex_reservation_room_overlap` / `ex_rate_plan_no_overlap`（原 `docs/01` 的 `ex_room_date_overlap` 已对齐）；`docs/01` §8 可用房查询改用生成列 `during`
-- [x] 查询脚本与实测记录（2026-10-30）：`sql/04_queries.sql`（Q1–Q8）**psql 实跑通过**；结果落 `work/04_queries_out.txt`（纯 UTF-8）并整理成 `docs/05-查询结果与测试记录.md`（报告第 4 章素材：Q1 可用房 34 间、Q2 客户 11 条、Q3 30 行入住率、Q4 15 行营收、Q5 房型 Top3、Q6 7 间长期空闲与取消率、Q7 视图余额、Q8 实测 23P01）
-- [x] 实施计划按实际进度回填（2026-10-30）：`docs/03` 阶段 0/1 标 ✅（阶段 1 提前 4 天）、WBS T1–T3 标完成、§4.1/4.2/4.3/5.3/§7 与实测对齐（`sql/00–04`、`managed = False`、Q1–Q8）
+- [x] 种子数据扩量 + 增值服务两表转正（2026-10-30 晚）：`tools/build_seed_sql.py` 改参数重跑并 psql 实跑通过 → `app_user 27 / customer 30 / room_type 6 / room 40 / rate_plan 10 / reservation 96 / check_in_record 48 / payment 96 / room_status_log 35 / service_item 8 / service_order 57`；`docs/03` §4.3 目标值**全部达标**（T14 提前完成）；`service_item` / `service_order` 不再称“可选表”，接入 F07 结算（`service_order.amount` 生成列 + 单价快照）
+- [x] 查询脚本与实测记录（2026-10-30）：`sql/04_queries.sql`（Q1–Q8）**psql 实跑通过**；结果落 `work/04_queries_out.txt`（纯 UTF-8）并整理成 `docs/05-查询结果与测试记录.md`（报告第 4 章素材，v2 数据：Q1 可用房 36 间、Q2 张伟 9 条、Q3 30 行入住率、Q4 16 行营收（月度净收入 12400/24456/11092/2170）、Q5 房型 Top3、Q6 4 间长期空闲与取消率、Q7 视图余额、Q8 实测 23P01）
+- [x] EXPLAIN 证据（2026-10-30）：`fn_available_rooms(2026-12-20, 12-22)` 执行计划存 `work/explain_available_rooms.txt` 并写入 `docs/03` §5.3 —— Function Scan 36 行、`shared hit=21`、Execution 0.623 ms；F09 入住率查询的 EXPLAIN 随 T12 补
 
 ### 进行中（按 `docs/03` WBS 推进）
-- [ ] **种子数据量未达 `docs/03` §4.3 目标**：客户 7（目标 ≥30）、入住 30（≥40）、支付 60（≥80）→ 由 T14 改 `tools/build_seed_sql.py` 参数重跑，差距表见 `docs/03` §4.3
 - [ ] **T4–T5 Django 工程骨架与登录/角色权限**（`src/`，模型 `managed = False`）—— 下一阶段入口，未开始
 
 ### 仍需确认

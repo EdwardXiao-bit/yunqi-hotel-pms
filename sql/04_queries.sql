@@ -31,7 +31,7 @@ FROM fn_available_rooms(DATE '2026-12-20', DATE '2026-12-22')
 ORDER BY price, room_no;
 
 -- Q1-b 等价显式实现（与函数体逐条对齐：房态排除维修/停用 + 房型启用 + 半开区间 + 三态过滤）
---      与 Q1-a 应返回同样的 34 间；若两处数字不一致说明有一边被改坏了
+--      与 Q1-a 应返回同样的 36 间；若两处数字不一致说明有一边被改坏了
 SELECT r.room_no        AS 房号,
        rt.name          AS 房型,
        rt.capacity      AS 可住人数,

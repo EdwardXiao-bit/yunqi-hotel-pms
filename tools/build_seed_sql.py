@@ -4,10 +4,10 @@
 设计依据：docs/02-数据库设计.md 第 10 节「数据样例规划」。
 
 为什么用脚本生成而不是手写 SQL：
-- 60 条预订必须保证「同一房间 + 活跃状态」的时间区间互不重叠（EXCLUDE 约束），
+- 96 条预订必须保证「同一房间 + 活跃状态」的时间区间互不重叠（EXCLUDE 约束），
   手写极易撞车；脚本里维护 busy[room_id] 区间表，落库前就做冲突检测。
-- 需要精确的条数口径（60 预订 / 30 入住 / 60 支付 / 6 种房态全覆盖），
-  脚本末尾 assert 校验，生成物与文档一致。
+- 需要精确的条数口径（30 客户 / 96 预订 / 48 入住 / ≥80 支付 / 8 服务项目 /
+  ≥50 服务明细 / 6 种房态全覆盖），脚本末尾 assert 校验，生成物与文档一致。
 - 固定随机种子，同样输入永远生成同样输出，便于 diff 与复现。
 
 用法：
@@ -70,36 +70,75 @@ FLOOR_TYPE = {
     12: "无障碍房",
 }
 
-# 账号：1 管理员 + 2 前台 + 6 客户账号
-APP_USERS = [
+# 员工账号：1 管理员 + 2 前台
+STAFF_USERS = [
     ("admin", "酒店管理员", "admin", "13908001000", "admin@yunqi-hotel.local"),
     ("front01", "前台·刘敏", "receptionist", "13908001001", "front01@yunqi-hotel.local"),
     ("front02", "前台·周涛", "receptionist", "13908001002", "front02@yunqi-hotel.local"),
-    ("zhangwei", "张伟", "customer", "13800001101", "zhangwei@example.com"),
-    ("lina", "李娜", "customer", "13800001102", "lina@example.com"),
-    ("wangfang", "王芳", "customer", "13800001103", "wangfang@example.com"),
-    ("liuyang", "刘洋", "customer", "13800001104", "liuyang@example.com"),
-    ("chenjing", "陈静", "customer", "13800001105", "chenjing@example.com"),
-    ("yangfan", "杨帆", "customer", "13800001106", "yangfan@example.com"),
 ]
 
-# 客户档案：前 6 个关联账号 4–9，第 7 个为线下散客（user_id 为空）
-CUSTOMERS = [
-    # (user_id, 姓名, 手机, 身份证, 邮箱, 备注)
-    (4, "张伟", "13800001101", "510101199003070011", "zhangwei@example.com", "常客，偏好高楼层"),
-    (5, "李娜", "13800001102", "510104199205120022", "lina@example.com", None),
-    (6, "王芳", "13800001103", "510107198811230033", "wangfang@example.com", "对早餐过敏，需无坚果"),
-    (7, "刘洋", "13800001104", "510108199507040044", "liuyang@example.com", None),
-    (8, "陈静", "13800001105", "510109199310150055", "chenjing@example.com", "公司协议价客户"),
-    (9, "杨帆", "13800001106", "510110199901200066", "yangfan@example.com", None),
-    (None, "赵磊", "13800001107", "510111198706250077", None, "线下散客，前台代订"),
+# 客户档案：共 30 条 = 24 个有账号客户 + 6 个线下散客（user_id 为空）
+# 前 6 位沿用固定姓名（docs/05 的查询样例以张伟为主要样本，便于对照截图）
+CORE_CUSTOMERS = [
+    # (用户名, 姓名, 手机, 身份证, 邮箱, 备注)
+    ("zhangwei", "张伟", "13800001101", "510101199003070011", "zhangwei@example.com", "常客，偏好高楼层"),
+    ("lina", "李娜", "13800001102", "510104199205120022", "lina@example.com", None),
+    ("wangfang", "王芳", "13800001103", "510107198811230033", "wangfang@example.com", "对早餐过敏，需无坚果"),
+    ("liuyang", "刘洋", "13800001104", "510108199507040044", "liuyang@example.com", None),
+    ("chenjing", "陈静", "13800001105", "510109199310150055", "chenjing@example.com", "公司协议价客户"),
+    ("yangfan", "杨帆", "13800001106", "510110199901200066", "yangfan@example.com", None),
 ]
 
+# 其余 18 个有账号客户 + 6 个散客按固定规则拼姓名，保证姓名/手机/身份证唯一
+SURNAMES = ["孙", "马", "朱", "胡", "郭", "何", "高", "林", "罗", "郑",
+            "梁", "谢", "宋", "唐", "许", "韩", "冯", "邓", "曹", "彭",
+            "曾", "萧", "田", "董"]
+GIVEN_NAMES = ["明", "静", "强", "敏", "磊", "霞", "军", "丽", "刚", "艳",
+               "涛", "娟", "鹏", "浩", "娜", "伟", "超", "燕", "鑫", "雪",
+               "帆", "雨", "昊", "欣"]
+
+APP_USERS: list[tuple[str, str, str, str, str]] = list(STAFF_USERS)
+CUSTOMERS: list[tuple[int | None, str, str, str, str | None, str | None]] = []
+
+# 客户 1–6：有账号
+for username, name, phone, id_card, email, remark in CORE_CUSTOMERS:
+    APP_USERS.append((username, name, "customer", phone, email))
+    CUSTOMERS.append((len(APP_USERS), name, phone, id_card, email, remark))
+
+# 客户 7–24：有账号（guest07 … guest24）
+for i in range(18):
+    seq = 7 + i
+    name = SURNAMES[i] + GIVEN_NAMES[i]
+    phone = f"138000012{seq:02d}"
+    id_card = f"5101{seq:02d}1985{(seq % 12) + 1:02d}15{seq:03d}{seq % 10}"
+    email = f"guest{seq:02d}@example.com"
+    APP_USERS.append((f"guest{seq:02d}", name, "customer", phone, email))
+    CUSTOMERS.append((len(APP_USERS), name, phone, id_card, email, None))
+
+# 客户 25–30：线下散客，user_id 为空，前台代订
+for i in range(6):
+    seq = 25 + i
+    name = SURNAMES[18 + i] + GIVEN_NAMES[18 + i]
+    phone = f"138000013{seq:02d}"
+    id_card = f"5102{seq:02d}1987{(seq % 12) + 1:02d}18{seq:03d}{seq % 10}"
+    CUSTOMERS.append((None, name, phone, id_card, None, "线下散客，前台代订"))
+
+assert len(APP_USERS) == 27, len(APP_USERS)
+assert len(CUSTOMERS) == 30, len(CUSTOMERS)
+assert len({c[2] for c in CUSTOMERS}) == 30, "客户手机号重复"
+assert len({c[3] for c in CUSTOMERS}) == 30, "客户身份证重复"
+assert all(len(c[3]) == 18 for c in CUSTOMERS), "身份证长度必须为 18"
+
+# 增值服务项目（F07 退房结算：房费 + 服务费；docs/01 第 10 张表已转为必选）
 SERVICE_ITEMS = [
     ("BF", "自助早餐", "份", Decimal("68.00")),
     ("LD", "洗衣服务", "件", Decimal("30.00")),
     ("AP", "机场接送", "次", Decimal("120.00")),
     ("EB", "加床服务", "张", Decimal("150.00")),
+    ("LC", "午餐套餐", "份", Decimal("88.00")),
+    ("DN", "晚餐套餐", "份", Decimal("128.00")),
+    ("SP", "SPA 水疗", "次", Decimal("268.00")),
+    ("PK", "停车位", "晚", Decimal("20.00")),
 ]
 
 # =============================================================================
@@ -199,12 +238,12 @@ def fill(count: int, status: str, window: tuple[date, date], nights: tuple[int, 
         add(rid, start, end, status, rng.choice(customer_pool), rng.choice(["online", "phone", "walk_in"]), remark)
 
 
-ACCOUNT_CUSTOMERS = [1, 2, 3, 4, 5, 6]   # 有账号的客户
-ALL_CUSTOMERS = [1, 2, 3, 4, 5, 6, 7]   # 含散客
+ACCOUNT_CUSTOMERS = list(range(1, 25))   # 有账号的客户 1–24
+ALL_CUSTOMERS = list(range(1, 31))       # 含 25–30 的线下散客
 RECEPTIONIST_IDS = [2, 3]
 
-# --- 历史已退房 23 条（2026-09 ~ 2026-11）---
-fill(23, "checked_out", (date(2026, 9, 1), date(2026, 11, 26)), (1, 4), ALL_CUSTOMERS)
+# --- 历史已退房 38 条（2026-09 ~ 2026-11）---
+fill(38, "checked_out", (date(2026, 9, 1), date(2026, 11, 26)), (1, 4), ALL_CUSTOMERS)
 
 # --- 首尾相接的已退房一对（B3：12-01 离店，同日 12-01 另一客入住）---
 room_b3_past = next(rid for rid in ALL_ROOM_IDS
@@ -215,14 +254,14 @@ add(room_b3_past, date(2026, 11, 28), date(2026, 11, 30), "checked_out", 1, "onl
 add(room_b3_past, date(2026, 11, 30), date(2026, 12, 2), "checked_out", 2, "phone",
     "B3 边界用例：与上一段首尾相接，占用不冲突")
 
-# --- 已取消 5 条 ---
-fill(5, "cancelled", (date(2026, 9, 10), date(2026, 12, 24)), (1, 3), ACCOUNT_CUSTOMERS)
+# --- 已取消 11 条（连同 B4 的取消单共 12 条）---
+fill(11, "cancelled", (date(2026, 9, 10), date(2026, 12, 24)), (1, 3), ACCOUNT_CUSTOMERS)
 
-# --- 未到店 4 条 ---
-fill(4, "no_show", (date(2026, 9, 10), date(2026, 12, 28)), (1, 3), ACCOUNT_CUSTOMERS)
+# --- 未到店 6 条 ---
+fill(6, "no_show", (date(2026, 9, 10), date(2026, 12, 28)), (1, 3), ACCOUNT_CUSTOMERS)
 
-# --- 入住中 5 条（跨 2026-12-15）---
-for _ in range(5):
+# --- 入住中 8 条（跨 2026-12-15）---
+for _ in range(8):
     for _try in range(5000):
         start = ANCHOR - timedelta(days=rng.randint(1, 3))
         end = start + timedelta(days=rng.randint(2, 4))
@@ -235,15 +274,16 @@ for _ in range(5):
     else:
         raise RuntimeError("无法安排入住中预订")
 
-# --- 待确认 7 条 + 已确认 10 条（未来区间）---
-fill(7, "pending", (date(2026, 12, 20), date(2027, 1, 10)), (1, 4), ACCOUNT_CUSTOMERS)
-fill(10, "confirmed", (date(2026, 12, 18), date(2027, 1, 18)), (1, 4), ACCOUNT_CUSTOMERS)
+# --- 待确认 13 条 + 已确认 14 条（未来区间，连同 B3/B4 的活跃单共 14 + 16 条）---
+fill(13, "pending", (date(2026, 12, 20), date(2027, 1, 10)), (1, 4), ACCOUNT_CUSTOMERS)
+fill(14, "confirmed", (date(2026, 12, 18), date(2027, 1, 18)), (1, 4), ACCOUNT_CUSTOMERS)
 
 # --- B4：先取消再重订（同客户、同房间、同区间）---
+# B4 取消后重订用的客户改成 1 号（保证「同客户 + 同房间 + 同区间」的判重样本落在主样本客户上）
 room_b4 = next(rid for rid in ALL_ROOM_IDS if free(rid, date(2026, 12, 20), date(2026, 12, 22)))
-add(room_b4, date(2026, 12, 20), date(2026, 12, 22), "cancelled", 3, "online",
+add(room_b4, date(2026, 12, 20), date(2026, 12, 22), "cancelled", 1, "online",
     "B4 边界用例：客户取消后再下同区间订单")
-add(room_b4, date(2026, 12, 20), date(2026, 12, 22), "confirmed", 3, "online",
+add(room_b4, date(2026, 12, 20), date(2026, 12, 22), "confirmed", 1, "online",
     "B4 边界用例：取消单不计入排他约束，同区间可重新预订")
 
 # --- B3 活跃态首尾相接：已确认 01-05~01-07 与待确认 01-07~01-09 同房间 ---
@@ -255,20 +295,20 @@ add(room_b3, date(2027, 1, 5), date(2027, 1, 7), "confirmed", 5, "phone",
 add(room_b3, date(2027, 1, 7), date(2027, 1, 9), "pending", 6, "online",
     "B3 边界用例：与上一段首尾相接，活跃态也不冲突")
 
-# 状态汇总校验
+# 状态汇总校验（docs/03 §4.3 目标：预订 ≥60、入住 ≥40、支付 ≥80）
 STATUS_EXPECT = {
-    "checked_out": 25,
-    "cancelled": 6,
-    "no_show": 4,
-    "checked_in": 5,
-    "pending": 8,
-    "confirmed": 12,
+    "checked_out": 40,
+    "cancelled": 12,
+    "no_show": 6,
+    "checked_in": 8,
+    "pending": 14,
+    "confirmed": 16,
 }
 counts: dict[str, int] = {}
 for r in reservations:
     counts[r["status"]] = counts.get(r["status"], 0) + 1
 assert counts == STATUS_EXPECT, f"预订状态分布不符：{counts} != {STATUS_EXPECT}"
-assert len(reservations) == 60, len(reservations)
+assert len(reservations) == 96, len(reservations)
 
 # 冲突总校验：活跃状态区间两两不重叠（首尾相接合法）
 ACTIVE = ("pending", "confirmed", "checked_in")
@@ -279,7 +319,7 @@ for i, a in enumerate(active):
             raise AssertionError(f"活跃区间重叠：{a['no']} / {b['no']}")
 
 # =============================================================================
-# 4. 入住记录（30 条 = 25 已退房 + 5 在住）
+# 4. 入住记录（48 条 = 40 已退房 + 8 在住）
 # =============================================================================
 
 checkins: list[dict] = []
@@ -304,10 +344,10 @@ for res_idx, r in enumerate(reservations, start=1):  # res_idx = reservation.id�
         "orders": [],
     })
 
-assert len(checkins) == 30, len(checkins)
-# 只有已退房的 25 条可能带服务消费；在住的 5 条也要有服务费（支付流水里要出现 service_fee）
+assert len(checkins) == 48, len(checkins)
+# 增值服务明细：在住 8 条全部有消费；已退房 40 条里约 3/4 有消费（F07 结算与统计都要有样本）
 for idx, rec in enumerate(checkins):
-    if rec["status"] == "checked_in" or idx % 5 == 0:
+    if rec["status"] == "checked_in" or idx % 4 != 3:
         items = rng.sample(SERVICE_ITEMS, rng.randint(1, 2))
         charge = Decimal("0.00")
         for code, name, unit, price in items:
@@ -321,9 +361,13 @@ for idx, rec in enumerate(checkins):
         rec["service_charge"] = charge
     rec["total_charge"] = (rec["room_charge"] + rec["service_charge"]).quantize(Decimal("0.01"))
 
+order_count = sum(len(rec["orders"]) for rec in checkins)
+assert 45 <= order_count <= 90, f"service_order 条数异常：{order_count}"
+assert all(rec["service_charge"] > 0 for rec in checkins if rec["status"] == "checked_in"), \
+    "在住记录必须有服务消费（支付流水里的 service_fee 依赖它）"
+
 # =============================================================================
-# 5. 支付流水（60 笔）
-#   30 笔押金 + 23 笔房费尾款 + 2 笔退款 + 5 笔在住服务费 = 60
+# 5. 支付流水（48 押金 + 37 房费尾款 + 3 退款 + 8 在住服务费 = 96 笔）
 # =============================================================================
 
 payments: list[dict] = []
@@ -348,7 +392,9 @@ def add_payment(rec: dict, kind: str, amount: Decimal, when: tuple[date, int, in
 
 idx_of_record = {rec["reservation_no"]: i for i, rec in enumerate(checkins)}
 
-refund_records = {checkins[0]["reservation_no"], checkins[7]["reservation_no"]}
+refund_records = {checkins[0]["reservation_no"], checkins[7]["reservation_no"],
+                  checkins[15]["reservation_no"]}
+assert len(refund_records) == 3, "E07 押金退款样本应为 3 条"
 for rec in checkins:
     method = rng.choice(["cash", "card", "wechat", "alipay"])
     if rec["reservation_no"] in refund_records:
@@ -369,11 +415,17 @@ for rec in checkins:
         add_payment(rec, "service_fee", rec["service_charge"],
                     (ANCHOR, 10, 0), "wechat", "在住期间增值服务费")
 
-assert len(payments) == 60, len(payments)
 kind_counts: dict[str, int] = {}
 for p in payments:
     kind_counts[p["kind"]] = kind_counts.get(p["kind"], 0) + 1
-assert kind_counts == {"deposit": 30, "room_fee": 23, "refund": 2, "service_fee": 5}, kind_counts
+EXPECTED_KINDS = {
+    "deposit": sum(1 for r in checkins),
+    "room_fee": sum(1 for r in checkins if r["status"] == "checked_out") - len(refund_records),
+    "refund": len(refund_records),
+    "service_fee": sum(1 for r in checkins if r["status"] == "checked_in"),
+}
+assert kind_counts == EXPECTED_KINDS, f"支付类型分布不符：{kind_counts} != {EXPECTED_KINDS}"
+assert len(payments) >= 80, f"支付流水应 ≥80 笔（docs/03 §4.3 目标），实际 {len(payments)}"
 
 # =============================================================================
 # 6. 房态派生（六种房态全覆盖）
@@ -435,16 +487,16 @@ w("-- 本文件由 tools/build_seed_sql.py 生成（随机种子 20261030，可�
 w("-- 不要手改；改数据改脚本后重新生成： python tools/build_seed_sql.py")
 w("--")
 w("-- 数据规模（与 docs/02-数据库设计.md 第 10 节一致）：")
-w("--   app_user        9   （1 管理员 + 2 前台 + 6 客户账号，口令统一 Hotel@123）")
-w("--   customer        7   （6 个关联账号 + 1 个线下散客）")
+w(f"--   app_user        {len(APP_USERS)}  （1 管理员 + 2 前台 + {len(APP_USERS) - 3} 客户账号，口令统一 Hotel@123）")
+w(f"--   customer        {len(CUSTOMERS)}  （{sum(1 for c in CUSTOMERS if c[0] is not None)} 个关联账号 + {sum(1 for c in CUSTOMERS if c[0] is None)} 个线下散客）")
 w("--   room_type       6   （标准间 / 高级大床房 / 豪华双床房 / 家庭房 / 行政套房 / 无障碍房）")
 w("--   room           40   （5–12 层，每层 5 间，六种房态全覆盖）")
 w("--   rate_plan      10   （国庆加价 ×5 房型 + 元旦加价 ×5 房型）")
-w("--   reservation    60   （六种状态，含 B3 首尾相接、B4 取消后重订两组边界数据）")
-w("--   check_in_record 30  （25 条已退房 + 5 条在住）")
-w("--   payment        60   （30 押金 + 23 房费尾款 + 2 退款 + 5 在住服务费）")
+w(f"--   reservation    {len(reservations)}  （六种状态，含 B3 首尾相接、B4 取消后重订两组边界数据）")
+w(f"--   check_in_record {len(checkins)}  （{sum(1 for r in checkins if r['status'] == 'checked_out')} 条已退房 + {sum(1 for r in checkins if r['status'] == 'checked_in')} 条在住）")
+w(f"--   payment        {len(payments)}  （{kind_counts.get('deposit', 0)} 押金 + {kind_counts.get('room_fee', 0)} 房费尾款 + {kind_counts.get('refund', 0)} 退款 + {kind_counts.get('service_fee', 0)} 在住服务费）")
 w(f"--   room_status_log    {7 + sum(1 for v in final_status.values() if v != 'available')}（手工历史 7 + 触发器自动 {sum(1 for v in final_status.values() if v != 'available')} 条）")
-w(f"--   service_item    {len(SERVICE_ITEMS)} / service_order {sum(len(r['orders']) for r in checkins)}（增值服务，F07 用）")
+w(f"--   service_item    {len(SERVICE_ITEMS)} / service_order {order_count}（增值服务，F07 结算与统计用）")
 w("--")
 w("-- 执行：")
 w("--   chcp 65001")
@@ -528,7 +580,7 @@ w()
 
 # --- reservation ---
 w("-- ----------------------------------------------------------------------------")
-w("-- 6) reservation 预订 60 条")
+w(f"-- 6) reservation 预订 {len(reservations)} 条")
 w("--    同一房间的活跃区间（pending/confirmed/checked_in）互不重叠；")
 w("--    含两组边界数据：B3 首尾相接（离店日 = 下一段入住日，合法）、")
 w("--    B4 取消后同区间重订（取消单不参与排他约束，合法）。")
@@ -548,7 +600,7 @@ w()
 
 # --- check_in_record ---
 w("-- ----------------------------------------------------------------------------")
-w("-- 7) check_in_record 入住记录 30 条（25 已退房 + 5 在住，在住的 actual_checkout_at 为空）")
+w(f"-- 7) check_in_record 入住记录 {len(checkins)} 条（{sum(1 for r in checkins if r['status'] == 'checked_out')} 已退房 + {sum(1 for r in checkins if r['status'] == 'checked_in')} 在住，在住的 actual_checkout_at 为空）")
 w("-- ----------------------------------------------------------------------------")
 w("INSERT INTO check_in_record (reservation_id, guest_name, guest_phone, guest_id_card,")
 w("                             check_in_at, actual_checkout_at, deposit_amount,")
@@ -589,7 +641,7 @@ w()
 
 # --- payment ---
 w("-- ----------------------------------------------------------------------------")
-w("-- 9) payment 支付流水 60 笔（kind=refund 的金额也记正数，靠 kind 区分方向）")
+w(f"-- 9) payment 支付流水 {len(payments)} 笔（kind=refund 的金额也记正数，靠 kind 区分方向）")
 w("-- ----------------------------------------------------------------------------")
 w("INSERT INTO payment (payment_no, check_in_record_id, kind, method, amount, paid_at,")
 w("                     operator_user_id, remark) VALUES")
@@ -676,7 +728,7 @@ w("-- 视图连通性")
 w("SELECT count(*) AS reservation_detail_rows FROM v_reservation_detail;")
 w("SELECT count(*) AS check_in_detail_rows FROM v_check_in_detail;")
 w()
-w("SELECT '03_seed.sql 执行完成：60 条预订 / 30 条入住 / 60 笔支付' AS result;")
+w(f"SELECT '03_seed.sql 执行完成：{len(reservations)} 条预订 / {len(checkins)} 条入住 / {len(payments)} 笔支付 / {order_count} 条服务明细' AS result;")
 w()
 w("COMMIT;")
 w()
