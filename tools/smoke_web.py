@@ -421,6 +421,180 @@ def main() -> int:
         today_in = reception_client.get("/reception/reservations/", {"quick": "today"})
         check(today_in.status_code == 200, "P06 “今日到店”快捷筛选返回 200", str(today_in.status_code))
 
+    # ---------------------------------------------------------------- P07 入住（F06）
+    today_s = date.today().isoformat()
+    tomorrow_s = (date.today() + timedelta(days=1)).isoformat()
+    f06_rooms = re.findall(
+        r"room_id=(\d+)",
+        customer_client.get(
+            "/rooms/available/", {"check_in_date": today_s, "check_out_date": tomorrow_s}
+        ).content.decode("utf-8"),
+    )
+    check(bool(f06_rooms), "P07 前置：今天有一间可用房用于入住测试", f"{len(f06_rooms)} 间")
+    f06_room = f06_rooms[0] if f06_rooms else room_id
+
+    checkin_page = reception_client.get("/reception/checkin/new/")
+    checkin_body = checkin_page.content.decode("utf-8")
+    check(checkin_page.status_code == 200, "前台打开 P07 入住办理页 200", str(checkin_page.status_code))
+    check('name="q"' in checkin_body and "按预订办理入住" in checkin_body, "P07 渲染预订检索表单")
+    check("在住客人" in checkin_body, "P07 渲染在住客人区块")
+    check(
+        customer_client.get("/reception/checkin/new/").status_code == 403,
+        "客户访问 P07 入住办理页得 403",
+    )
+    check(admin_client.get("/reception/checkin/new/").status_code == 200, "管理员可打开 P07 入住办理页")
+
+    walkin_page = reception_client.get(
+        "/reception/checkin/walkin/",
+        {
+            "check_in_date": (date.today() + timedelta(days=5)).isoformat(),
+            "check_out_date": (date.today() + timedelta(days=7)).isoformat(),
+        },
+    )
+    walkin_body = walkin_page.content.decode("utf-8")
+    check(walkin_page.status_code == 200, "前台打开散客入住页 200", str(walkin_page.status_code))
+    check("散客" in walkin_body and 'name="guest_name"' in walkin_body, "散客入住页渲染入住人字段")
+    walkin_rooms = re.findall(r'<option value="(\d+)">\s*\n\s*(\d{3})', walkin_body)
+    walkin_room_ids = [room_pk for room_pk, _ in walkin_rooms]
+    check(bool(walkin_room_ids), "散客入住页给出可用房间选项", f"{len(walkin_room_ids)} 间")
+    check(
+        customer_client.get("/reception/checkin/walkin/").status_code == 403,
+        "客户访问散客入住页得 403",
+    )
+
+    found = reception_client.get("/reception/checkin/new/", {"q": "张伟"})
+    check(
+        found.status_code == 200 and "张伟" in found.content.decode("utf-8"),
+        "P07 按关键字检索命中客户",
+    )
+
+    if write_checks:
+        checkin_booking = customer_client.post(
+            "/reservations/new/",
+            {
+                "room_id": f06_room,
+                "check_in_date": today_s,
+                "check_out_date": tomorrow_s,
+                "guest_count": "2",
+                "guest_name": "张伟",
+                "guest_phone": "13800001101",
+                "remark": "冒烟入住前置订单",
+            },
+        )
+        checkin_url = checkin_booking.get("Location", "")
+        check(
+            checkin_booking.status_code == 302 and checkin_url.startswith("/my/reservations/"),
+            "P07 前置：新建一单今天的待入住预订",
+            f"{checkin_booking.status_code} {checkin_url}",
+        )
+        checkin_id = checkin_url.rstrip("/").split("/")[-1]
+        reception_client.post(
+            "/reception/reservations/",
+            {"reservation_id": checkin_id, "action": "confirm", "next": "/reception/reservations/"},
+        )
+
+        form_page = reception_client.get("/reception/checkin/new/", {"reservation_id": checkin_id})
+        form_body = form_page.content.decode("utf-8")
+        check(
+            form_page.status_code == 200 and 'name="deposit_amount"' in form_body,
+            "P07 选中预订后渲染入住表单（含押金）",
+        )
+        check('name="guest_name"' in form_body and "入住人姓名" in form_body, "P07 表单带出入住人字段")
+
+        posted = reception_client.post(
+            "/reception/checkin/new/",
+            {
+                "action": "checkin",
+                "reservation_id": checkin_id,
+                "guest_name": "张伟",
+                "guest_phone": "13800001101",
+                "guest_id_card": "510101199001010011",
+                "deposit_amount": "200.00",
+                "remark": "冒烟入住",
+            },
+        )
+        check(posted.status_code == 302, "P07 办理入住成功（302 回页面）", str(posted.status_code))
+        checkin_after = reception_client.get("/reception/checkin/new/").content.decode("utf-8")
+        check("张伟" in checkin_after and "在住" in checkin_after, "入住后订单出现在在住客人列表")
+        again = reception_client.get(
+            "/reception/checkin/new/", {"reservation_id": checkin_id}
+        ).content.decode("utf-8")
+        check("已经办理过入住" in again, "同一预订重复办理入住被拦截并给中文提示")
+        cust_detail = customer_client.get(checkin_url).content.decode("utf-8")
+        check("入住中" in cust_detail, "客户订单详情反映“入住中”状态")
+
+        walkin_room = next(
+            (room_pk for room_pk, room_no in walkin_rooms if room_no == "803"),
+            next(
+                (room_pk for room_pk, _ in walkin_rooms if room_pk != f06_room),
+                walkin_room_ids[0] if walkin_room_ids else "",
+            ),
+        )
+        walkin_post = reception_client.post(
+            "/reception/checkin/walkin/",
+            {
+                "check_in_date": (date.today() + timedelta(days=5)).isoformat(),
+                "check_out_date": (date.today() + timedelta(days=7)).isoformat(),
+                "room_id": walkin_room,
+                "guest_count": "1",
+                "guest_name": "散客测试",
+                "guest_phone": "13900002222",
+                "guest_id_card": "",
+                "deposit_amount": "200.00",
+                "remark": "冒烟散客",
+            },
+        )
+        check(walkin_post.status_code == 302, "P07 散客入住成功（302）", str(walkin_post.status_code))
+        walkin_after = reception_client.get("/reception/checkin/new/").content.decode("utf-8")
+        check("散客测试" in walkin_after, "散客入住后出现在在住客人列表")
+
+        # 续住：填原离店日期被拒 → 相邻区间被别的预订占住时拒绝 → 释放后成功
+        extend_bad = reception_client.post(
+            "/reception/checkin/new/",
+            {"action": "extend", "reservation_id": checkin_id, "check_out_date": tomorrow_s},
+        )
+        bad_body = reception_client.get(
+            extend_bad.get("Location", "/reception/checkin/new/")
+        ).content.decode("utf-8")
+        check("必须晚于原离店日期" in bad_body, "续住填原离店日期被拒绝并给中文提示")
+
+        block_out = (date.today() + timedelta(days=3)).isoformat()
+        blocker_booking = customer_client.post(
+            "/reservations/new/",
+            {
+                "room_id": f06_room,
+                "check_in_date": tomorrow_s,
+                "check_out_date": block_out,
+                "guest_count": "1",
+                "guest_name": "张伟",
+                "guest_phone": "13800001101",
+                "remark": "冒烟续住占位",
+            },
+        )
+        blocker_id = blocker_booking.get("Location", "").rstrip("/").split("/")[-1]
+        extend_conflict = reception_client.post(
+            "/reception/checkin/new/",
+            {"action": "extend", "reservation_id": checkin_id, "check_out_date": block_out},
+        )
+        conflict_body = reception_client.get(
+            extend_conflict.get("Location", "/reception/checkin/new/")
+        ).content.decode("utf-8")
+        check("已被预订" in conflict_body, "续住区间与既有预订冲突被拒绝并指出冲突")
+        reception_client.post(
+            "/reception/reservations/",
+            {"reservation_id": blocker_id, "action": "cancel", "next": "/reception/reservations/"},
+        )
+        extend_ok = reception_client.post(
+            "/reception/checkin/new/",
+            {"action": "extend", "reservation_id": checkin_id, "check_out_date": block_out},
+        )
+        extend_body = reception_client.get(
+            extend_ok.get("Location", "/reception/checkin/new/")
+        ).content.decode("utf-8")
+        check("续住成功" in extend_body, "续住成功后给中文提示并更新离店日期")
+        extended_detail = customer_client.get(checkin_url).content.decode("utf-8")
+        check(block_out in extended_detail, "续住后订单详情显示新的离店日期")
+
     # ---------------------------------------------------------------- 汇总
     failed = [r for r in results if not r[0]]
     print("\n" + "=" * 72)
@@ -536,6 +710,7 @@ def _build_sqlite_schema_and_seed() -> None:
     )
     room = Room.objects.create(room_type=room_type, room_no="801", floor=8, orientation="south", status="available")
     room2 = Room.objects.create(room_type=room_type, room_no="802", floor=8, orientation="south", status="cleaning")
+    room3 = Room.objects.create(room_type=room_type, room_no="803", floor=8, orientation="south", status="available")
 
     today = timezone.localdate()
     Reservation.objects.create(
