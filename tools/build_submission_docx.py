@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """生成第一次提交用的 Word 汇总文档。
 
-输出：deliverables/第14组_云栖酒店客房预订与入住管理系统.docx
+输出：deliverables/第14组_酒店客房预订与入住管理系统.docx
+（文件名按课程要求「第x组_给定方案名称」，项目名仍为 云栖酒店客房预订与入住管理系统）
 内容：项目名称 + 项目描述 + 功能清单（Excel 表格截图）+ 数据库要点
 版式：A4、正文小四号宋体、行距 20 磅、标题黑体（沿用课程报告版式要求）。
 """
@@ -16,10 +17,11 @@ from docx.shared import Cm, Pt, RGBColor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "deliverables")
-OUT = os.path.join(OUT_DIR, "第14组_云栖酒店客房预订与入住管理系统.docx")
+OUT = os.path.join(OUT_DIR, "第14组_酒店客房预订与入住管理系统.docx")
 IMG = os.path.join(OUT_DIR, "images", "feature-list.png")
 
 PROJECT = "云栖酒店客房预订与入住管理系统"
+SCHEME = "酒店客房预订与入住管理系统"  # 教师给定方案六的原题名，文件名按此命名
 
 ONE_LINER = (
     "面向中小型酒店的客房管理系统：客户按日期区间查询可用房间并在线预订，前台办理入住、退房与费用结算并调度房态，"
@@ -132,7 +134,8 @@ set_run_font(p.add_run("数据库系统原理课程设计 · 第 14 组 · 第�
 
 # ---- 一、项目名称 ----
 h1(doc, "一、项目名称")
-body_para(doc, f"项目名称：{PROJECT}（给定方案六）")
+body_para(doc, f"项目名称：{PROJECT}")
+body_para(doc, f"方案来源：给定方案六（{SCHEME}）")
 body_para(doc, "组　　号：第 14 组")
 body_para(doc, "小组成员：胡宇书（组长）、肖铭皓")
 body_para(doc, "指导教师：郭际香")

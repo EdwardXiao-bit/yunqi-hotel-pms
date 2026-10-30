@@ -9,8 +9,8 @@ from openpyxl import load_workbook
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 D = os.path.join(ROOT, "deliverables")
-XLSX = os.path.join(D, "第14组_云栖酒店客房预订与入住管理系统_功能清单.xlsx")
-DOCX = os.path.join(D, "第14组_云栖酒店客房预订与入住管理系统.docx")
+XLSX = os.path.join(D, "第14组_酒店客房预订与入住管理系统_功能清单.xlsx")
+DOCX = os.path.join(D, "第14组_酒店客房预订与入住管理系统.docx")
 
 ok = True
 def check(cond, msg):

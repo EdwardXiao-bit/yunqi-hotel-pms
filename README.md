@@ -108,8 +108,8 @@ database-course-project/
 │  ├─ 03-实施计划.md            里程碑、WBS、风险、测试验收
 │  └─ 2026学年…docx             教师下发原件（只读）
 ├─ deliverables/                对外交付件（第一次提交）
-│  ├─ 第14组_云栖酒店客房预订与入住管理系统.docx
-│  ├─ 第14组_云栖酒店客房预订与入住管理系统_功能清单.xlsx
+│  ├─ 第14组_酒店客房预订与入住管理系统.docx    文件名按给定方案名（内部项目名云栖…）
+│  ├─ 第14组_酒店客房预订与入住管理系统_功能清单.xlsx
 │  └─ images/feature-list.png   300 dpi 表格截图
 ├─ tools/                       文档解析与交付件生成脚本
 ├─ sql/                         （待建）01_schema / 02_constraints / 03_seed / 04_queries

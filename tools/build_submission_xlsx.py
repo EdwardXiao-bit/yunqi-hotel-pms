@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """生成第一次提交用的「软件功能清单」Excel。
 
-输出：deliverables/第14组_云栖酒店客房预订与入住管理系统_功能清单.xlsx
+输出：deliverables/第14组_酒店客房预订与入住管理系统_功能清单.xlsx
+（文件名按课程要求「第x组_给定方案名称」，项目名仍为 云栖酒店客房预订与入住管理系统）
 数据来源：docs/01-功能清单.md 第 4 节（逐字一致）。
 """
 import math
@@ -13,7 +14,7 @@ from openpyxl.worksheet.properties import PageSetupProperties
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "deliverables")
-OUT = os.path.join(OUT_DIR, "第14组_云栖酒店客房预订与入住管理系统_功能清单.xlsx")
+OUT = os.path.join(OUT_DIR, "第14组_酒店客房预订与入住管理系统_功能清单.xlsx")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 PROJECT = "云栖酒店客房预订与入住管理系统"
