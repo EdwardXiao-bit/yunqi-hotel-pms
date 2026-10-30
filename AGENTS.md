@@ -41,6 +41,7 @@ yunqi-hotel-pms/
 │  ├─ 03-实施计划.md            里程碑/WBS/风险/测试验收（已建）
 │  ├─ 04-报告撰写规范.md        6 章大纲与版式参数（待写）
 │  ├─ 05-查询结果与测试记录.md   04_queries 的实测结果，报告 4 章素材（已建 2026-10-30）
+│  ├─ 页面约定.md               14 个业务页 + 3 个错误页的 URL/模板/表单字段/负责人契约（已建 2026-10-30，WBS T4 前置）
 │  └─ 2026学年…docx / 报告封面文档.doc   教师下发原件，只读
 ├─ tools/                       docx/doc 解析 + 交付件生成脚本
 │  ├─ dump_docx.py / doc_extract.py  读教师原件
@@ -132,6 +133,7 @@ yunqi-hotel-pms/
 - [x] 种子数据扩量 + 增值服务两表转正（2026-10-30 晚）：`tools/build_seed_sql.py` 改参数重跑并 psql 实跑通过 → `app_user 27 / customer 30 / room_type 6 / room 40 / rate_plan 10 / reservation 96 / check_in_record 48 / payment 96 / room_status_log 35 / service_item 8 / service_order 57`；`docs/03` §4.3 目标值**全部达标**（T14 提前完成）；`service_item` / `service_order` 不再称“可选表”，接入 F07 结算（`service_order.amount` 生成列 + 单价快照）
 - [x] 查询脚本与实测记录（2026-10-30）：`sql/04_queries.sql`（Q1–Q8）**psql 实跑通过**；结果落 `work/04_queries_out.txt`（纯 UTF-8）并整理成 `docs/05-查询结果与测试记录.md`（报告第 4 章素材，v2 数据：Q1 可用房 36 间、Q2 张伟 9 条、Q3 30 行入住率、Q4 16 行营收（月度净收入 12400/24456/11092/2170）、Q5 房型 Top3、Q6 4 间长期空闲与取消率、Q7 视图余额、Q8 实测 23P01）
 - [x] EXPLAIN 证据（2026-10-30）：`fn_available_rooms(2026-12-20, 12-22)` 执行计划存 `work/explain_available_rooms.txt` 并写入 `docs/03` §5.3 —— Function Scan 36 行、`shared hit=21`、Execution 0.623 ms；F09 入住率查询的 EXPLAIN 随 T12 补
+- [x] 前端排期口径（2026-10-30 定，组内确认）：**不设独立前端阶段**，按功能纵向切片（每个 WBS 任务的产出同时含视图 + 模板 + 表单 + 提示），前端集中在 T4–T5 做骨架；`docs/03` 新增 §4.4「前端实现节奏」并把 WBS 表加「前端产物」列；`docs/页面约定.md` 已提前建立（14 业务页 + 3 错误页的 URL/模板/表单字段/负责人），作为 T4 的前置契约
 
 ### 进行中（按 `docs/03` WBS 推进）
 - [ ] **T4–T5 Django 工程骨架与登录/角色权限**（`src/`，模型 `managed = False`）—— 下一阶段入口，未开始
