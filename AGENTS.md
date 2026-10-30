@@ -1,7 +1,7 @@
 # 数据库系统原理课程设计 · 14 组
 
 > 项目根 `AGENTS.md`：给 AI 助手与组员共用的项目约定。**当前状态：选题、功能清单、技术栈均已定案；第一次提交件（xlsx + 截图 + Word）已产出待上传；表结构与页面待阶段 1–4 回填。**
-> 最后更新：2026-10-30（提交件改按课程要求的「第x组_给定方案名称」命名）
+> 最后更新：2026-10-30（提交件改按课程要求的“第x组_给定方案名称”命名）
 
 ## 1 项目事实（已确认）
 
@@ -12,8 +12,8 @@
 - 指导教师：郭际香（见 `docs/报告封面文档.doc`）
 - 技术栈（已定案 2026-10-29，不再改）：**PostgreSQL 18 + Django 6.1 + Bootstrap 4.6（AdminLTE 3.2 模板 + 服务端模板渲染）**
 - 运行时（本机实测）：Python 3.12.7（`D:\anaconda3\python.exe`）、Django 6.1.2、psycopg2 2.9.13、PostgreSQL 18（服务 `postgresql-x64-18` 运行中）
-- 项目名称（题目）：**云栖酒店客房预订与入住管理系统**（2026-10-29 定名；对应教师给定方案六原题名「酒店客房预订与入住管理系统」）
-- 交付件命名：**`第14组_酒店客房预订与入住管理系统`**（课程要求「第x组_给定方案名称」，文件名用方案名、正文标题用自定项目名）
+- 项目名称（题目）：**云栖酒店客房预订与入住管理系统**（2026-10-29 定名；对应教师给定方案六原题名“酒店客房预订与入住管理系统”）
+- 交付件命名：**`第14组_酒店客房预订与入住管理系统`**（课程要求“第x组_给定方案名称”，文件名用方案名、正文标题用自定项目名）
 - 选题（已定案）：给定方案六，决策过程见 `docs/方案对比-六方案评估.md`、`docs/自定选题候选.md`
 - 数据库：PostgreSQL 18，库名 `hotel_db`，端口 `5432`，编码 UTF8，时区 Asia/Shanghai
 - 角色：客户（customer）、前台工作人员（receptionist）、管理员（admin）
@@ -77,7 +77,7 @@ database-course-project/
 ### 4.2 后端（Django，服务端渲染）
 
 - 工程：`src/` 下 `manage.py` + `config/`（settings/urls/wsgi）+ 业务 app `core/`；单进程 `python manage.py runserver 8000`，**不拆前后端**。
-- 渲染：服务端模板 + 表单 POST（`{% csrf_token %}`）；不写 JSON API、不引 DRF。写操作走 POST → `redirect()` + `messages`，杜绝「Ajax 提交 + 前端提示」的双份校验。
+- 渲染：服务端模板 + 表单 POST（`{% csrf_token %}`）；不写 JSON API、不引 DRF。写操作走 POST → `redirect()` + `messages`，杜绝“Ajax 提交 + 前端提示”的双份校验。
 - SQL 纪律：复杂查询（可用房、入住率、月度营业额）用 `connection.cursor()` 手写 SQL 或 `QuerySet.raw()`，ORM 只做简单 CRUD —— 报告 4 章要贴**真实执行的 SQL**。
 - 异常：业务校验失败抛 `ValidationError`，视图捕获后 `messages.error()` 并回显原页面；数据库 `IntegrityError`（尤其 EXCLUDE 冲突）必须映射成中文提示，E02/E04 靠这一层。
 - 鉴权：Django 内置 `auth` + `Group`（customer / receptionist / admin），`@login_required` + 自定义 `role_required` 装饰器；不自己造 JWT。
@@ -90,7 +90,7 @@ database-course-project/
 - 布局：`templates/base.html` + `templates/partials/{head,sidebar,navbar,footer,scripts}.html`，业务页 `{% extends 'base.html' %}` 只填 `{% block content %}`；登录页独立，不套后台布局。
 - 个性化裁剪（官方包默认带全部 demo 与插件）：删 `pages/` 下 demo 页；插件按需引用，保留 Bootstrap/jQuery/Popper/FontAwesome/DataTables/DateRangePicker(moment)，统计图表优先 ECharts（不经 jQuery 插件链）；不用 Summernote、CodeMirror、Dropzone、FullCalendar、jsGrid、flot、uPlot、sparkline、jqvmap、pace、filterizr、pdfmake 等。
 - 交互：后端 `messages` → Bootstrap alert / toastr 渲染；删除、取消预订等破坏性操作加 SweetAlert2 二次确认。
-- 列表页分页：用 Django `Paginator` **服务端分页** + 表单单选/日期筛选，查询在库里跑；**不用 DataTables 前端分页**（会砍掉「多表查询」的展示，报告 4 章没 SQL 可贴）。DataTables 只在纯展示型静态表格上可选项。
+- 列表页分页：用 Django `Paginator` **服务端分页** + 表单单选/日期筛选，查询在库里跑；**不用 DataTables 前端分页**（会砍掉“多表查询”的展示，报告 4 章没 SQL 可贴）。DataTables 只在纯展示型静态表格上可选项。
 - 中文观感：`site.css` 补中文字体栈（`"Microsoft YaHei", "PingFang SC", ...`）与表格/表单字号，避免 Bootstrap 默认英文排版。
 
 ## 5 文档与报告约定
@@ -99,6 +99,7 @@ database-course-project/
 - 报告 6 章结构固定，不得增删一级标题。
 - 所有 SQL 片段必须**可直接在演示库执行**，报告里的查询结果截图与脚本一致。
 - 生成文档只用 `tools/` 下脚本（python-docx / XlsxWriter），不手工改二进制文件；中文文件一律 UTF-8，不经 PowerShell 管道改写。
+- 中文引号统一用弯引号“”，**不用直角引号（U+300C / U+300D）**（交付件、docs、代码注释一致；脚本里中文多，改文案优先用 Python 处理，别在 PowerShell 里写中文）。
 
 ## 6 协作与纪律（给 AI 助手）
 
@@ -106,7 +107,7 @@ database-course-project/
 - 定案事项立即落盘到 `docs/`，不在对话里留结论。
 - 改 SQL 后必须跑 `psql -f` 验证可重复执行，并保留输出。
 - 教师下发原件不改；交付物（docx/pptx/xlsx）用 `present` 给用户。
-- 未定事项集中在下方「待定」。
+- 未定事项集中在下方“待定”。
 
 ## 7 待定（TODO）
 
@@ -121,7 +122,7 @@ database-course-project/
 - [x] 仓库清理（2026-10-30）：截图改名 `deliverables/images/feature-list.png`（ASCII，避免非中文环境编码问题），删除早期 Word COM 实验脚本 `tools/convert_doc.ps1`，清掉旧项目名的过期交付件
 
 ### 仍需确认
-- [ ] **两人学号**（封面「学生学号」与页脚必填）—— 阻塞报告成稿
+- [ ] **两人学号**（封面“学生学号”与页脚必填）—— 阻塞报告成稿
 - [ ] **报告第 6 章分工占比百分比**（按工作量排序，两人合计 100%）
 - [ ] 第 15–16 周的**具体日期**（按校历补进 `docs/03` 里程碑后平移排期）
 - [ ] 11-12 提交件是否需附**项目描述之外的补充说明**（教师未要求，默认不附）
