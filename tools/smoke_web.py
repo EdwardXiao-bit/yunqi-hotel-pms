@@ -13,6 +13,7 @@ import argparse
 import logging
 import os
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 
 # 沙箱下往 anaconda 的 site-packages 写 .pyc 会被拒，脚本自身也统一不写字节码
@@ -144,6 +145,64 @@ def main() -> int:
             resp.get("Location", ""),
         )
         check(client.get("/").status_code == 302, f"{role} 登出后访问 / 被拦截")
+
+    # ---------------------------------------------------------------- P02 可用房查询（F03）
+    future_in = (date.today() + timedelta(days=30)).isoformat()
+    future_out = (date.today() + timedelta(days=32)).isoformat()
+
+    anonymous = Client()
+    resp = anonymous.get("/rooms/available/")
+    check(
+        resp.status_code == 302 and "/login/" in resp.get("Location", ""),
+        "匿名访问 /rooms/available/ 跳登录页",
+        resp.get("Location", ""),
+    )
+
+    for role, (username, _landing) in ACCOUNTS.items():
+        client = Client()
+        client.post("/login/", {"username": username, "password": PASSWORD})
+
+        form = client.get("/rooms/available/")
+        form_body = form.content.decode("utf-8")
+        check(form.status_code == 200, f"{role} 打开可用房查询页 200", str(form.status_code))
+        check("可用房查询" in form_body and "查询可用房" in form_body, f"{role} 可用房页渲染查询表单")
+        check("可用房查询" in form_body and "fa-door-open" in form_body, f"{role} 侧边栏出现“可用房查询”入口")
+
+        result = client.get(
+            "/rooms/available/",
+            {"check_in_date": future_in, "check_out_date": future_out, "room_type_id": "", "capacity": ""},
+        )
+        body = result.content.decode("utf-8")
+        check(
+            result.status_code == 200 and "按房型汇总" in body and "房间明细" in body,
+            f"{role} 可用房查询返回汇总与明细区块",
+            str(result.status_code),
+        )
+        check(
+            '<td class="text-monospace">' in body,
+            f"{role} 可用房查询至少返回一间房",
+            f"{body.count('text-monospace')} 处房号",
+        )
+
+        filtered = client.get(
+            "/rooms/available/",
+            {"check_in_date": future_in, "check_out_date": future_out, "capacity": "3"},
+        )
+        check(
+            filtered.status_code == 200 and "已按“入住人数 ≥ 3”过滤" in filtered.content.decode("utf-8"),
+            f"{role} 可用房按入住人数过滤生效",
+            str(filtered.status_code),
+        )
+
+        invalid = client.get(
+            "/rooms/available/", {"check_in_date": future_out, "check_out_date": future_in}
+        )
+        check(
+            invalid.status_code == 200
+            and "离店日期必须晚于入住日期" in invalid.content.decode("utf-8"),
+            f"{role} 反向日期区间被拒绝并给中文提示",
+            str(invalid.status_code),
+        )
 
     # ---------------------------------------------------------------- 汇总
     failed = [r for r in results if not r[0]]

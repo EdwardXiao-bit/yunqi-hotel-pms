@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% block title %}可用房查询 · 云栖酒店{% endblock %}
+{% block page_title %}可用房查询{% endblock %}
+{% block breadcrumb_current %}客户服务 / 可用房查询{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-5">
+    <div class="card card-primary card-outline">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-search mr-1"></i>查询条件</h3>
+        <div class="card-tools small text-muted">F03 · P02</div>
+      </div>
+      <form method="get" action="{% url 'core:available_rooms' %}">
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label for="check_in_date">入住日期 <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="check_in_date" name="check_in_date"
+                     value="{{ params.check_in_date }}" min="{{ today|date:'Y-m-d' }}" required>
+            </div>
+            <div class="form-group col-md-6">
+              <label for="check_out_date">离店日期 <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="check_out_date" name="check_out_date"
+                     value="{{ params.check_out_date }}" min="{{ today|date:'Y-m-d' }}" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-7">
+              <label for="room_type_id">房型</label>
+              <select class="form-control" id="room_type_id" name="room_type_id">
+                <option value="">全部房型</option>
+                {% for rt in room_types %}
+                  <option value="{{ rt.pk }}" {% if params.room_type_id == rt.pk|stringformat:'s' %}selected{% endif %}>
+                    {{ rt.name }}（{{ rt.capacity }} 人 · {{ rt.base_price|floatformat:0 }} 元/晚起）
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group col-md-5">
+              <label for="capacity">入住人数</label>
+              <input type="number" class="form-control" id="capacity" name="capacity" min="1" max="8"
+                     placeholder="不限" value="{{ params.capacity }}">
+            </div>
+          </div>
+          <p class="text-muted small mb-0">
+            <i class="fas fa-info-circle mr-1"></i>
+            日期区间按“入住当天计、离店当天不计”计算；查询结果已排除维修/停用房间与已被有效预订占用的日期。
+          </p>
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-search mr-1"></i>查询可用房</button>
+          <a href="{% url 'core:available_rooms' %}" class="btn btn-default">重置</a>
+        </div>
+      </form>
+    </div>
+
+    {% if errors %}
+      <div class="card card-outline card-danger">
+        <div class="card-header"><h3 class="card-title"><i class="fas fa-exclamation-triangle mr-1"></i>查询条件有问题</h3></div>
+        <div class="card-body">
+          <ul class="mb-0 pl-3">
+            {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+          </ul>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-7">
+    {% if submitted and not errors %}
+      <div class="row">
+        <div class="col-sm-4">
+          <div class="small-box bg-info">
+            <div class="inner"><h3>{{ rows|length }}</h3><p>可用房间</p></div>
+            <div class="icon"><i class="fas fa-door-open"></i></div>
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <div class="small-box bg-success">
+            <div class="inner"><h3>{{ nights }}</h3><p>住宿晚数</p></div>
+            <div class="icon"><i class="fas fa-moon"></i></div>
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <div class="small-box bg-secondary">
+            <div class="inner"><h3>{{ summary|length }}</h3><p>可订房型</p></div>
+            <div class="icon"><i class="fas fa-layer-group"></i></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-outline card-info">
+        <div class="card-header">
+          <h3 class="card-title"><i class="fas fa-chart-pie mr-1"></i>按房型汇总</h3>
+          <div class="card-tools small text-muted">
+            {{ check_in|date:'Y-m-d' }} 入住 → {{ check_out|date:'Y-m-d' }} 离店
+          </div>
+        </div>
+        <div class="card-body p-0">
+          {% if summary %}
+            <table class="table table-hover table-sm mb-0">
+              <thead>
+                <tr>
+                  <th>房型</th><th class="text-right">可订间数</th><th class="text-right">可住</th>
+                  <th class="text-right">标准价(元/晚)</th><th class="text-right">每晚均价</th><th class="text-right">区间合计</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for s in summary %}
+                  <tr>
+                    <td>{{ s.room_type_name }}</td>
+                    <td class="text-right"><span class="badge badge-success">{{ s.count }} 间</span></td>
+                    <td class="text-right">{{ s.capacity }} 人</td>
+                    <td class="text-right">{{ s.base_price|floatformat:2 }}</td>
+                    <td class="text-right">{{ s.avg_price|floatformat:2 }}</td>
+                    <td class="text-right text-monospace">{{ s.min_total_price|floatformat:2 }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="p-3 text-muted"><i class="far fa-frown mr-1"></i>该日期区间没有可订房间，换个日期或放宽房型/人数再试。</div>
+          {% endif %}
+        </div>
+        {% if capacity_limit %}
+          <div class="card-footer small text-muted">已按“入住人数 ≥ {{ capacity_limit }}”过滤。</div>
+        {% endif %}
+      </div>
+
+      <div class="card card-outline card-primary">
+        <div class="card-header">
+          <h3 class="card-title"><i class="fas fa-list mr-1"></i>房间明细</h3>
+          <div class="card-tools small text-muted">预订提交（P03）在 T7 落地</div>
+        </div>
+        <div class="card-body p-0">
+          {% if rows %}
+            <table class="table table-hover table-sm mb-0">
+              <thead>
+                <tr>
+                  <th>房号</th><th>房型</th><th class="text-right">楼层</th><th class="text-right">可住</th>
+                  <th class="text-right">标准价</th><th class="text-right">每晚均价</th><th class="text-right">区间合计</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in rows %}
+                  <tr>
+                    <td class="text-monospace">{{ r.room_no }}</td>
+                    <td>{{ r.room_type_name }}</td>
+                    <td class="text-right">{{ r.floor }}</td>
+                    <td class="text-right">{{ r.capacity }} 人</td>
+                    <td class="text-right">{{ r.base_price|floatformat:2 }}</td>
+                    <td class="text-right">{{ r.avg_price|floatformat:2 }}</td>
+                    <td class="text-right text-monospace">{{ r.total_price|floatformat:2 }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="p-3 text-muted"><i class="far fa-folder-open mr-1"></i>没有匹配的房间。</div>
+          {% endif %}
+        </div>
+      </div>
+    {% else %}
+      <div class="card card-outline card-secondary">
+        <div class="card-header"><h3 class="card-title"><i class="fas fa-lightbulb mr-1"></i>怎么用</h3></div>
+        <div class="card-body">
+          <ol class="pl-3 mb-2">
+            <li>选入住/离店日期（默认明天到后天），可按房型与入住人数筛选。</li>
+            <li>查询后看“按房型汇总”的余量与区间报价，再看“房间明细”的房号与每晚均价。</li>
+            <li>价格已按价格方案逐日计算：命中专项价的日期用专项价，其余用房型标准价。</li>
+          </ol>
+          <p class="text-muted small mb-0">
+            判定口径：房间当前房态不得为“维修中/停用”，区间内不得有 <code>待确认/已确认/入住中</code> 的预订，
+            也不得落在 <code>room_block</code> 的维修停用区间内。
+          </p>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

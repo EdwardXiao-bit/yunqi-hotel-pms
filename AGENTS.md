@@ -152,7 +152,7 @@ yunqi-hotel-pms/
 - [x] T4–T5 **真库验收**（2026-10-30 23:40）：`sql/91_app_role.sql` 建 `yunqi_app` 最小权限账号（**已执行**，口令由用户用 psql `\password` 自设、我不代持）+ `sql/05_django_tables.sql` 建 `django_session`（已执行）+ `.env` 配 `DB_USER=yunqi_app`；`python tools/smoke_web.py --mode real` **35 项全 PASS**（预检：14 张基表 / 3 条 EXCLUDE / 种子账号 3/3）。三处修复记录：① `sql/91` 原用 `\prompt` + `ALTER ROLE ... PASSWORD :'var'` 在 Windows 控制台下拿到空值 → 改用 psql 元命令 `\password`（连问两次、不回显、由 psql 加密）；② Django session 表不在 `sql/` 序列里 → 新增幂等 `05_django_tables.sql`（**不跑 migrate**，DDL 仍以 sql/ 为唯一事实源）；③ `room_block`/`service_item` 模型多带 `updated_at`（DB 无此列）→ 两模型写 `updated_at = None`，`work/check_models_vs_db.py` 复核字段对齐
 
 ### 进行中（按 `docs/03` WBS 推进）
-- [ ] **T6 起业务流程页**：F03 可用房查询 → F04/F05 预订与取消 → F06 入住 → F07 退房结算 → F02/F08 房态 → F01/F09 维护与统计；每页按 `docs/页面约定.md` 的 P 编号与字段契约实现，复杂查询走手写 SQL；每完成一页更新 `docs/03` 状态与 `tools/smoke_web.py` 断言
+- [~] **T6 起业务流程页**：**F03 可用房查询已完成（2026-10-31，P02 `/rooms/available/`）** —— `src/core/views/rooms.py` 走 `fn_available_rooms` 手写 SQL（sqlite 离线走等价 Python 实现）、`templates/customer/available_rooms.html`（表单 + 按房型汇总 + 房间明细 + 中文校验提示）、路由 `core:available_rooms`、侧边栏入口；真库 12-20~12-22 明细 35 行 = 函数 35 行；`tools/smoke_web.py` 扩到 **57 项**。**下一步 F04/F05 预订与取消（P03/P04/P06）**；每页按 `docs/页面约定.md` 的 P 编号与字段契约实现，复杂查询走手写 SQL；每完成一页更新 `docs/03` 状态与冒烟断言
 
 ### 仍需确认
 - [ ] **两人学号**（封面“学生学号”与页脚必填）—— 阻塞报告成稿

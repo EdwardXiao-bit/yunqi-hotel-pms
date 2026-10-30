@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from django.urls import path
 
-from .views import auth, home
+from .views import auth, home, rooms
 
 app_name = "core"
 
@@ -13,6 +13,8 @@ urlpatterns = [
     path("logout/", auth.logout_view, name="logout"),
     # P01 客户首页
     path("", home.customer_home, name="customer_home"),
+    # P02 可用房查询（F03）
+    path("rooms/available/", rooms.available_rooms, name="available_rooms"),
     # P05 前台工作台
     path("reception/", home.reception_home, name="reception_home"),
     # 管理概览
