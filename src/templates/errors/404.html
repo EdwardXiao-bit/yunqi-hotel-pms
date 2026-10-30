@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}404 页面不存在 · 云栖酒店{% endblock %}
+{% block page_title %}404 · 页面不存在{% endblock %}
+{% block breadcrumb_current %}未找到{% endblock %}
+{% block content %}
+<div class="error-page">
+  <h2 class="headline text-info">404</h2>
+  <div class="error-content">
+    <h3><i class="fas fa-search text-info mr-1"></i>没有找到你要访问的页面</h3>
+    <p>URL 可能拼错了，或者该页面属于还没实现的里程碑（T6 起的业务页）。</p>
+    <p class="mb-0">
+      <a href="{% url 'core:customer_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-home mr-1"></i>返回首页</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,99 @@
+/* 云栖酒店 PMS —— 只放少量覆盖样式，不覆盖 AdminLTE 主色（答辩截图统一） */
+
+:root {
+  --yunqi-font: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC",
+    "Source Han Sans SC", "WenQuanYi Micro Hei", "Segoe UI", Arial, sans-serif;
+}
+
+body,
+h1, h2, h3, h4, h5, h6,
+.table,
+.form-control,
+.btn,
+.card-title,
+.breadcrumb,
+.small-box p {
+  font-family: var(--yunqi-font);
+}
+
+body {
+  font-size: 14px;
+}
+
+/* 中文表格更紧凑、数字右对齐好读 */
+.table-sm td,
+.table-sm th {
+  padding: 0.45rem 0.55rem;
+  vertical-align: middle;
+}
+
+.table thead th {
+  font-weight: 600;
+  color: #495057;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+/* 金额/房号等用等宽字体，表格对齐更整齐 */
+.text-monospace,
+code {
+  font-family: Consolas, "Cascadia Mono", "Courier New", monospace;
+}
+
+code {
+  color: #c7254e;
+  background-color: #f9f2f4;
+  padding: 0.05rem 0.25rem;
+  border-radius: 3px;
+}
+
+/* 侧边栏：品牌区与中文字号 */
+.main-sidebar .brand-text {
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.main-sidebar .nav-header {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+}
+
+.nav-sidebar .nav-link p {
+  font-size: 0.92rem;
+}
+
+/* 页面标题 */
+.content-header h1 {
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+/* 登录页：深色渐变背景 + 卡片阴影，不依赖外部图片 */
+.login-bg {
+  background: linear-gradient(135deg, #12344d 0%, #1f4e6b 45%, #2a6f8f 100%);
+  min-height: 100vh;
+}
+
+.login-page .login-logo a {
+  color: #ffffff;
+  font-size: 2rem;
+}
+
+.login-page .login-logo p {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.login-page .card {
+  border-radius: 0.5rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+
+.login-box-msg {
+  font-size: 0.9rem;
+}
+
+/* 表格里的状态徽章统一高度 */
+.badge {
+  font-weight: 500;
+  padding: 0.32em 0.55em;
+}

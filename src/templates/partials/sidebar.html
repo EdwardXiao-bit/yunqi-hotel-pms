@@ -1,0 +1,47 @@
+{% load static %}
+<aside class="main-sidebar sidebar-dark-primary elevation-4">
+  <a href="{% url 'core:customer_home' %}" class="brand-link">
+    <i class="fas fa-hotel brand-image ml-3 mr-2"></i>
+    <span class="brand-text font-weight-bold">云栖酒店 PMS</span>
+  </a>
+
+  <div class="sidebar">
+    <div class="user-panel mt-3 pb-3 mb-3 d-flex">
+      <div class="image">
+        <i class="fas fa-user-circle fa-2x text-light ml-2"></i>
+      </div>
+      <div class="info">
+        <span class="d-block text-light">{{ user.get_full_name }}</span>
+        <small class="d-block text-muted">{{ current_role_label }}</small>
+      </div>
+    </div>
+
+    <nav class="mt-2">
+      <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+        {% for section in nav_sections %}
+          <li class="nav-header">{{ section.title }}</li>
+          {% for item in section.items %}
+            <li class="nav-item">
+              <a href="{% url item.url_name %}"
+                 class="nav-link{% if request.resolver_match.url_name == item.name %} active{% endif %}">
+                <i class="nav-icon {{ item.icon }}"></i>
+                <p>{{ item.label }}</p>
+              </a>
+            </li>
+          {% endfor %}
+        {% endfor %}
+
+        <li class="nav-header">会话</li>
+        <li class="nav-item">
+          <form method="post" action="{% url 'core:logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="nav-link btn btn-link text-left w-100">
+              <i class="nav-icon fas fa-sign-out-alt"></i>
+              <p>退出登录</p>
+            </button>
+          </form>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</aside>

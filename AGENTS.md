@@ -1,7 +1,7 @@
 # 数据库系统原理课程设计 · 14 组
 
-> 项目根 `AGENTS.md`：给 AI 助手与组员共用的项目约定。**当前状态（2026-10-30 晚）：选题、功能清单、技术栈、13 张表结构与 SQL 脚本均已定案并全部 psql 实跑通过（阶段 0–1 完成，阶段 1 提前 4 天）；第一次提交件已按组长文案重做为 v2（A4 三页，39 项断言全 PASS），待上传；Django 工程（阶段 3–5）未开始。**
-> 最后更新：2026-10-30 18:00（13 表版 SQL 实跑通过 + Q1–Q8 重跑；`docs/02`/`docs/05` 数字刷新；提交件 v2；前端节奏 §4.4）
+> 项目根 `AGENTS.md`：给 AI 助手与组员共用的项目约定。**当前状态（2026-10-30 深夜）：选题、功能清单、技术栈、13 张表结构与 SQL 脚本均已定案并全部 psql 实跑通过（阶段 0–1 完成，阶段 1 提前 4 天）；第一次提交件已按组长文案重做为 v2（A4 三页，39 项断言全 PASS），待上传；Django 骨架与登录/三角色权限（T4–T5）已落地并通过离线冒烟（35 项），真库联调待 `.env` 填口令后进行；F03–F09 业务页未开始。**
+> 最后更新：2026-10-30 22:50（T4–T5：`src/` 工程 + AdminLTE 3.2 本地资源 + 登录 + 三角色权限 + 三端首页；`tools/smoke_web.py` 两种模式；`sql/91_app_role.sql`）
 
 ## 1 项目事实（已确认）
 
@@ -48,14 +48,15 @@ yunqi-hotel-pms/
 │  ├─ build_submission_xlsx.py 生成功能清单 Excel
 │  ├─ build_submission_docx.py 生成 Word 汇总（内嵌截图）
 │  ├─ build_seed_sql.py        生成 sql/03_seed.sql（30 客户/96 预订/48 入住/96 支付/57 服务明细，含冲突自检）
+│  ├─ smoke_web.py             Web 冒烟测试：默认离线 sqlite（自建 13 表+假数据），`--mode real` 走真库
 │  └─ verify_submission.py     两个交付件的结构与版式自检
 ├─ deliverables/                对外交付件（第一次提交）
 │  ├─ 第14组_酒店客房预订与入住管理系统.docx      文件名按给定方案名（内部项目名为云栖…）
 │  ├─ 第14组_酒店客房预订与入住管理系统_功能清单.xlsx
 │  └─ images/feature-list.png   300 dpi 表格截图，Word 内嵌源
 ├─ work/                        脚本中间产物（可清理）
-├─ sql/                         00–04 均已写完并 psql 实跑通过（13 表版）；90_readonly_role.sql 备用（MCP 只读账号）
-└─ src/                         待建：Django 工程（manage.py、config/、core/、templates/、static/）
+├─ sql/                         00–04 均已写完并 psql 实跑通过（13 表版）；90_readonly_role.sql（MCP 只读账号）、91_app_role.sql（Django 最小权限账号）备用
+└─ src/                         Django 6.1 工程（T4–T5 已落地）：manage.py、config/、core/、templates/、static/（vendor/adminlte 本地资源）
 ```
 
 - `docs/` 内教师原件**只读**，派生文件另起新名，不要覆盖。
@@ -92,6 +93,12 @@ yunqi-hotel-pms/
 - 异常：业务校验失败抛 `ValidationError`，视图捕获后 `messages.error()` 并回显原页面；数据库 `IntegrityError`（尤其 EXCLUDE 冲突）必须映射成中文提示，E02/E04 靠这一层。
 - 鉴权：自定义用户模型 `core.AppUser`（表 `app_user`，`managed = False`）用 `role` 列区分 customer / receptionist / admin，`@login_required` + 自定义 `role_required` 装饰器；不用 `Group` 绕一层，不自己造 JWT。
 - 配置：`SECRET_KEY`、DB 口令走环境变量（`.env` 不入库，提供 `.env.example`）。
+- **工程现状**（2026-10-30 晚落地，路径以 `src/` 为根）：`config/settings.py` 自带极简 `.env` 解析（不引第三方包，先读仓库根 `.env` 再读 `src/.env`，不覆盖已有环境变量）；`INSTALLED_APPS` **不含 `django.contrib.admin`**（业务后台自建，见 T11）；URL 命名空间 `core:`（`core:customer_home` / `core:reception_home` / `core:manage_home` / `core:login` / `core:logout`）。
+- **模型映射**：13 个模型全部 `managed = False` + 显式 `db_table` 与 `db_column`，外键 `on_delete=DO_NOTHING`（删除策略只听 SQL 的 `ON DELETE`）；`AppUser` 继承 `AbstractBaseUser`（`AUTH_USER_MODEL = 'core.AppUser'`），认证后端 `core.backends.AppUserBackend`，种子口令统一 `Hotel@123`（PBKDF2，`PASSWORD_HASHERS` 首位保留 `pbkdf2_sha256` 以兼容种子哈希）。
+- **权限**：`core.decorators.role_required(*roles)`（未登录跳登录页、角色不符 403）+ `core.roles.ROLE_HOME_URL_NAME` 决定三角色落地页；侧边栏由 `core.roles.NAV_SECTIONS` 按角色过滤、经 `core.context_processors.navigation` 注入。
+- **交互细节**：登出只接受 POST（GET 直接回登录页）；错误页 `handler403/404/500` 走 `core.views.errors`；模板 `partials/messages.html` 渲染 `messages`（`MESSAGE_TAGS` 把 error 映射成 `danger`）。
+- 数据库账号建议用 `sql/91_app_role.sql` 建的 `yunqi_app`（最小权限：`SELECT/INSERT/UPDATE/DELETE` + 序列 usage + 函数 execute，无 DDL），口令写进 `.env` 的 `DB_PASSWORD`。
+- **验证方式**：`python tools/smoke_web.py`（默认离线 sqlite：把 13 个模型临时置 `managed=True` 建表灌假数据，35 项断言，不依赖库口令；需 `PYTHONPATH` 同时含 `src` 与 `work`，Windows 下用分号分隔）与 `python tools/smoke_web.py --mode real`（真库 + 种子账号）。
 
 ### 4.3 前端（AdminLTE 3.2 + Bootstrap 4.6）
 
@@ -141,9 +148,11 @@ yunqi-hotel-pms/
 - [x] 查询脚本与实测记录（2026-10-30）：`sql/04_queries.sql`（Q1–Q8）**已在 13 表版上 psql 实跑通过**，结果写进 `docs/05-查询结果与测试记录.md`（Q1 可用房 **35 间**、Q2 张伟 9 条、Q4 按退房月归集后 13 行、Q4-b 月度净收入 12400 / 23568 / 11092 / 376 合计 47436、Q5 高级大床房 20 单 55 房夜、Q6-a 4 间、Q6-b walk_in 17.65%）；原始输出 `work/04_queries_out.txt`
 - [x] EXPLAIN 证据（2026-10-30）：`fn_available_rooms(2026-12-20, 12-22)` 执行计划存 `work/explain_available_rooms.txt` 并写入 `docs/03` §5.3 —— **13 表版实测 Function Scan 35 行、`shared hit=233`、Execution 6.264 ms、Planning 0.048 ms**（两个 `NOT EXISTS` 分别走 EXCLUDE 的 gist 索引与 `idx_room_block_room_dates`）；F09 入住率查询的 EXPLAIN 随 T12 补
 - [x] 前端排期口径（2026-10-30 定，组内确认）：**不设独立前端阶段**，按功能纵向切片（每个 WBS 任务的产出同时含视图 + 模板 + 表单 + 提示），前端集中在 T4–T5 做骨架；`docs/03` 新增 §4.4「前端实现节奏」并把 WBS 表加「前端产物」列；`docs/页面约定.md` 已提前建立（14 业务页 + 3 错误页的 URL/模板/表单字段/负责人），作为 T4 的前置契约
+- [x] T4–T5 工程骨架与登录权限（2026-10-30 深夜，提前落地）：`src/` 下 Django 6.1 工程（`manage.py`、`config/`、`core/`、`templates/`、`static/`）；AdminLTE 3.2 本地资源 **23 文件 6.41 MiB 无 CDN**（`work/adminlte_check.txt` verdict=PASS）；`base.html` + 6 个 `partials/` + 独立登录页 + 客户/前台/管理三端首页 + 3 个错误页；13 个模型 `managed=False`；`tools/smoke_web.py` 离线模式 **35 项断言全 PASS**、`manage.py check` 0 issue；`sql/91_app_role.sql` 提供 Django 最小权限账号（未执行）；README 补本地运行三步
 
 ### 进行中（按 `docs/03` WBS 推进）
-- [ ] **T4–T5 Django 工程骨架与登录/角色权限**（`src/`，模型 `managed = False`）—— 下一阶段入口，未开始
+- [ ] **T6 起业务流程页**：F03 可用房查询 → F04/F05 预订与取消 → F06 入住 → F07 退房结算 → F02/F08 房态 → F01/F09 维护与统计；每页按 `docs/页面约定.md` 的 P 编号与字段契约实现，复杂查询走手写 SQL
+- [ ] **真库联调**：用户执行 `sql/91_app_role.sql` → `.env` 填 `DB_USER=yunqi_app` / `DB_PASSWORD` → `python tools/smoke_web.py --mode real` 全绿后，才算 T4–T5 真库验收完成
 
 ### 仍需确认
 - [ ] **两人学号**（封面“学生学号”与页脚必填）—— 阻塞报告成稿

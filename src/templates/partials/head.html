@@ -1,0 +1,6 @@
+{% load static %}
+<!-- 资源全部本地（static/vendor/adminlte），演示机断网也能跑，不用 CDN -->
+<link rel="stylesheet" href="{% static 'vendor/adminlte/plugins/fontawesome-free/css/all.min.css' %}">
+<link rel="stylesheet" href="{% static 'vendor/adminlte/dist/css/adminlte.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/site.css' %}">
+{% block extra_head %}{% endblock %}

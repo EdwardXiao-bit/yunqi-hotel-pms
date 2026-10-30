@@ -1,0 +1,46 @@
+{% load static %}<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}云栖酒店客房预订与入住管理系统{% endblock %}</title>
+  {% include 'partials/head.html' %}
+</head>
+<body class="hold-transition sidebar-mini layout-fixed text-sm">
+<div class="wrapper">
+
+  {% include 'partials/navbar.html' %}
+  {% include 'partials/sidebar.html' %}
+
+  <div class="content-wrapper">
+    <section class="content-header">
+      <div class="container-fluid">
+        <div class="row mb-2">
+          <div class="col-sm-7">
+            <h1 class="m-0">{% block page_title %}云栖酒店客房预订与入住管理系统{% endblock %}</h1>
+          </div>
+          <div class="col-sm-5">
+            <ol class="breadcrumb float-sm-right">
+              <li class="breadcrumb-item"><a href="{% url 'core:customer_home' %}">首页</a></li>
+              <li class="breadcrumb-item active">{% block breadcrumb_current %}概览{% endblock %}</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="content">
+      <div class="container-fluid">
+        {% include 'partials/messages.html' %}
+        {% block content %}{% endblock %}
+      </div>
+    </section>
+  </div>
+
+  {% include 'partials/footer.html' %}
+</div>
+
+{% include 'partials/scripts.html' %}
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

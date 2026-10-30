@@ -1,0 +1,78 @@
+{% load static %}<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登录 · 云栖酒店客房预订与入住管理系统</title>
+  <link rel="stylesheet" href="{% static 'vendor/adminlte/plugins/fontawesome-free/css/all.min.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/adminlte/dist/css/adminlte.min.css' %}">
+  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+</head>
+<body class="hold-transition login-page login-bg">
+<div class="login-box">
+  <div class="login-logo">
+    <a href="{% url 'core:login' %}">
+      <i class="fas fa-hotel mr-2"></i><b>云栖</b>酒店
+    </a>
+    <p class="h6 text-muted mt-2 mb-0">客房预订与入住管理系统</p>
+  </div>
+
+  <div class="card">
+    <div class="card-body login-card-body">
+      <p class="login-box-msg">请使用账号登录（客户 / 前台 / 管理员）</p>
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags|default:'info' }} py-2 px-3 small" role="alert">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post" action="{% url 'core:login' %}" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+
+        <div class="input-group mb-3">
+          {{ form.username }}
+          <div class="input-group-append">
+            <div class="input-group-text"><span class="fas fa-user"></span></div>
+          </div>
+        </div>
+        {% for error in form.username.errors %}
+          <div class="text-danger small mb-2">{{ error }}</div>
+        {% endfor %}
+
+        <div class="input-group mb-3">
+          {{ form.password }}
+          <div class="input-group-append">
+            <div class="input-group-text"><span class="fas fa-lock"></span></div>
+          </div>
+        </div>
+        {% for error in form.password.errors %}
+          <div class="text-danger small mb-2">{{ error }}</div>
+        {% endfor %}
+
+        <div class="row">
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary btn-block">
+              <i class="fas fa-sign-in-alt mr-1"></i>登录
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <p class="text-muted small mt-3 mb-0">
+        <i class="fas fa-info-circle mr-1"></i>
+        演示账号见 <code>docs/03-实施计划.md</code> §4.2（种子数据 27 个账号，统一初始密码）。
+      </p>
+    </div>
+  </div>
+
+  <p class="text-center text-white-50 small mb-0">
+    数据库系统原理课程设计 · 第 14 组 · 胡宇书 / 肖铭皓
+  </p>
+</div>
+
+<script src="{% static 'vendor/adminlte/plugins/jquery/jquery.min.js' %}"></script>
+<script src="{% static 'vendor/adminlte/plugins/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>
