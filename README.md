@@ -131,7 +131,7 @@ yunqi-hotel-pms/
 │  └─ images/feature-list.png   300 dpi 表格截图
 ├─ tools/                       文档解析、交付件生成、种子数据生成、Web 冒烟测试
 ├─ sql/                         00_database / 01_schema / 02_constraints / 03_seed / 04_queries（均已实跑）
-│                               90_readonly_role / 91_app_role：备用账号脚本（MCP 只读、Django 最小权限）
+│                               05_django_tables：Django 会话表（不跑 migrate）；90/91：备用账号脚本
 └─ src/                         Django 6.1 工程（T4–T5 已落地）
    ├─ manage.py  config/        settings / urls / wsgi / asgi
    ├─ core/                     models（13 表，managed=False）/ backends / roles / decorators / views
@@ -146,9 +146,11 @@ yunqi-hotel-pms/
 psql -U postgres -d yunqi_hotel -v ON_ERROR_STOP=1 -f sql/01_schema.sql -f sql/02_constraints.sql -f sql/03_seed.sql
 # 2) 可选：建 Django 最小权限账号（交互式输入口令），把口令填进 .env 的 DB_PASSWORD
 psql -U postgres -d yunqi_hotel -v ON_ERROR_STOP=1 -f sql/91_app_role.sql
-# 3) 起服务
+# 3) Django 框架表（只建 django_session；本项目不跑 migrate，业务表全由 sql/ 提供）
+psql -U postgres -d yunqi_hotel -v ON_ERROR_STOP=1 -f sql/05_django_tables.sql
+# 4) 起服务
 python src/manage.py runserver 8000
-# 4) 冒烟自检（离线 sqlite 版不依赖数据库；--mode real 走真库与种子账号）
+# 5) 冒烟自检（离线 sqlite 版不依赖数据库；--mode real 走真库与种子账号）
 python tools/smoke_web.py
 python tools/smoke_web.py --mode real
 ```
@@ -160,7 +162,7 @@ python tools/smoke_web.py --mode real
 - [x] 选题定案、功能清单（9 项）、技术路线与实施计划
 - [x] **第一次提交材料**（2026-11-12 截止）：功能清单 Excel + 表格截图 + Word 汇总（含「四、数据库要点」）
 - [x] 数据库设计：ER 关系、13 张表、约束与索引、种子数据（`sql/00–04` 全部 psql 实跑通过）
-- [x] 系统骨架：Django 工程 + AdminLTE 3.2 本地资源 + 登录 + 三角色权限 + 三端首页（T4–T5，2026-10-30 提前完成，`tools/smoke_web.py` 35 项全绿）
+- [x] 系统骨架：Django 工程 + AdminLTE 3.2 本地资源 + 登录 + 三角色权限 + 三端首页（T4–T5，2026-10-30 提前完成；离线与**真库**两种模式 `tools/smoke_web.py` 均 35 项全绿）
 - [ ] 系统实现：预订 / 入住 / 结算主链路与其余业务页（F03 / F04 / F05 / F06 / F07 / F02 / F08 / F01 / F09）
 - [ ] 统计报表、异常处理、测试与截图（12/05 – 12/11）
 - [ ] 课程报告、PPT 与现场检查（第 15–16 周）

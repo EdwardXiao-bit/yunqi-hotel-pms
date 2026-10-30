@@ -65,6 +65,8 @@ def main() -> int:
 
     if args.mode == "sqlite":
         _build_sqlite_schema_and_seed()
+    elif _preflight_real_db() != 0:
+        return 2
 
     # ---------------------------------------------------------------- 静态资源
     vendor = SRC / "static" / "vendor" / "adminlte"
@@ -152,6 +154,71 @@ def main() -> int:
             print(f"  ✗ {name} {detail}")
     print("=" * 72)
     return 1 if failed else 0
+
+
+def _preflight_real_db() -> int:
+    """真库模式预检：把「连不上 / 口令错」翻译成中文提示，避免 psql 本地化消息解码崩溃。"""
+    import psycopg2
+    from django.conf import settings
+
+    db = settings.DATABASES["default"]
+    target = f"{db.get('USER')}@{db.get('HOST')}:{db.get('PORT')}/{db.get('NAME')}"
+    print(f"[PREFLIGHT] 尝试连接 {target} …")
+    try:
+        conn = psycopg2.connect(
+            host=db.get("HOST"),
+            port=db.get("PORT"),
+            dbname=db.get("NAME"),
+            user=db.get("USER"),
+            password=db.get("PASSWORD"),
+            connect_timeout=5,
+        )
+    except Exception as exc:  # noqa: BLE001 — 口令错会抛 UnicodeDecodeError，必须兜住
+        print("[PREFLIGHT] 连不上数据库。")
+        if isinstance(exc, UnicodeDecodeError):
+            print(
+                "  原因：PostgreSQL 返回的是中文（GBK）错误消息，Python 按 UTF-8 解码失败 ——"
+                " 实际含义几乎总是「口令认证失败」。\n"
+                "  排查：① 角色口令可能没设上 —— 进 psql（-U postgres -d yunqi_hotel）后执行元命令\n"
+                "        \\password yunqi_app（连输两次、不回显；注意这是 psql 元命令，不能放进 -c）\n"
+                "        ② 确认 .env 的 DB_PASSWORD 与上一步输入完全一致（首尾空格与引号会被 strip）\n"
+                "        ③ 确认 .env 的 DB_USER=yunqi_app"
+            )
+        else:
+            print(f"  {type(exc).__name__}: {exc}")
+        return 2
+
+    with conn, conn.cursor() as cur:
+        cur.execute("SELECT current_user, current_database()")
+        who, dbname = cur.fetchone()
+        cur.execute(
+            "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "WHERE n.nspname = 'public' AND c.relkind = 'r'"
+        )
+        (tables,) = cur.fetchone()
+        cur.execute(
+            "SELECT to_regclass('public.django_session') IS NOT NULL, "
+            "(SELECT count(*) FROM pg_constraint WHERE conname LIKE 'ex\\_%')"
+        )
+        has_session, excludes = cur.fetchone()
+        cur.execute(
+            "SELECT username, role FROM app_user WHERE username IN ('admin','front01','zhangwei') ORDER BY username"
+        )
+        accounts = cur.fetchall()
+    print(
+        f"[PREFLIGHT] 连接成功：{who}@{dbname}，public 下 {tables} 张基表 / {excludes} 条 EXCLUDE，"
+        f"django_session {'有' if has_session else '缺'}，种子账号 {len(accounts)}/3"
+    )
+    if tables < 13:
+        print("  [PREFLIGHT] 基表不足 13：先跑 sql/01_schema.sql → 02_constraints.sql → 03_seed.sql")
+        return 3
+    if not has_session:
+        print("  [PREFLIGHT] 缺 django_session：先跑 sql/05_django_tables.sql（登录要用会话表，不跑 migrate）")
+        return 3
+    if len(accounts) != 3:
+        print("  [PREFLIGHT] 种子账号缺失：先跑 sql/03_seed.sql")
+        return 3
+    return 0
 
 
 def _build_sqlite_schema_and_seed() -> None:

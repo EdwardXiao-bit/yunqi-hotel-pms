@@ -230,6 +230,10 @@ class Room(_BaseModel):
 class RoomBlock(_BaseModel):
     """维修 / 停用区间（F02 登记、F03 排除、F09 扣减可售房夜）。"""
 
+    # room_block 只有 created_at（登记时间），没有 updated_at —— 区间一经登记不原地改，
+    # 要改就删旧登记新建，避免与 EXCLUDE 约束、状态日志产生歧义。
+    updated_at = None
+
     room = models.ForeignKey(
         Room, verbose_name="房间", on_delete=models.DO_NOTHING,
         db_column="room_id", related_name="blocks",
@@ -425,6 +429,9 @@ class RoomStatusLog(models.Model):
 # ---------------------------------------------------------------- 12 service_item
 
 class ServiceItem(_BaseModel):
+    # service_item 只有 created_at，没有 updated_at（价目表改动直接改 price，无需审计列）
+    updated_at = None
+
     code = models.CharField("服务编码", max_length=20, unique=True, db_column="code")
     name = models.CharField("服务名称", max_length=50, unique=True, db_column="name")
     unit = models.CharField("计量单位", max_length=10, default="份", db_column="unit")
