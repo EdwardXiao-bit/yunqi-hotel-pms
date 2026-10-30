@@ -131,7 +131,7 @@
       <div class="card card-outline card-primary">
         <div class="card-header">
           <h3 class="card-title"><i class="fas fa-list mr-1"></i>房间明细</h3>
-          <div class="card-tools small text-muted">预订提交（P03）在 T7 落地</div>
+          <div class="card-tools small text-muted">点“预订”带着房号与日期进入 P03</div>
         </div>
         <div class="card-body p-0">
           {% if rows %}
@@ -140,6 +140,7 @@
                 <tr>
                   <th>房号</th><th>房型</th><th class="text-right">楼层</th><th class="text-right">可住</th>
                   <th class="text-right">标准价</th><th class="text-right">每晚均价</th><th class="text-right">区间合计</th>
+                  <th class="text-right">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -152,6 +153,12 @@
                     <td class="text-right">{{ r.base_price|floatformat:2 }}</td>
                     <td class="text-right">{{ r.avg_price|floatformat:2 }}</td>
                     <td class="text-right text-monospace">{{ r.total_price|floatformat:2 }}</td>
+                    <td class="text-right">
+                      <a class="btn btn-sm btn-primary"
+                         href="{% url 'core:reservation_create' %}?room_id={{ r.room_id }}&check_in_date={{ check_in|date:'Y-m-d' }}&check_out_date={{ check_out|date:'Y-m-d' }}">
+                        <i class="fas fa-calendar-plus mr-1"></i>预订
+                      </a>
+                    </td>
                   </tr>
                 {% endfor %}
               </tbody>

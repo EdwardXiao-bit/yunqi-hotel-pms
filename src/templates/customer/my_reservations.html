@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}我的预订 · 云栖酒店{% endblock %}
+{% block page_title %}我的预订{% endblock %}
+{% block breadcrumb_current %}客户服务 / 我的预订{% endblock %}
+
+{% block content %}
+<div class="card card-primary card-outline">
+  <div class="card-header">
+    <h3 class="card-title"><i class="fas fa-list-alt mr-1"></i>共 {{ total }} 条预订</h3>
+    <div class="card-tools small text-muted">F05 · P04</div>
+  </div>
+  <div class="card-body pb-0">
+    <form method="get" action="{% url 'core:my_reservations' %}" class="form-inline mb-3">
+      <label class="mr-2 mb-1" for="status">状态</label>
+      <select class="form-control form-control-sm mr-2 mb-1" id="status" name="status">
+        <option value="">全部</option>
+        {% for value, label in status_choices %}
+          <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-sm btn-primary mr-1 mb-1"><i class="fas fa-filter mr-1"></i>筛选</button>
+      <a href="{% url 'core:my_reservations' %}" class="btn btn-sm btn-default mb-1">重置</a>
+      <a href="{% url 'core:available_rooms' %}" class="btn btn-sm btn-success ml-auto mb-1">
+        <i class="fas fa-plus mr-1"></i>新预订
+      </a>
+    </form>
+  </div>
+  <div class="card-body p-0">
+    {% if reservations %}
+      <table class="table table-hover table-sm mb-0">
+        <thead>
+          <tr>
+            <th>预订号</th><th>房号 / 房型</th><th>入住</th><th>离店</th>
+            <th class="text-right">房晚</th><th class="text-right">金额</th><th>状态</th><th>来源</th><th class="text-right">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in reservations %}
+            <tr>
+              <td class="text-monospace"><a href="{% url 'core:my_reservation_detail' r.pk %}">{{ r.reservation_no }}</a></td>
+              <td>{{ r.room.room_no }} <span class="text-muted small">{{ r.room.room_type.name }}</span></td>
+              <td>{{ r.check_in_date|date:'Y-m-d' }}</td>
+              <td>{{ r.check_out_date|date:'Y-m-d' }}</td>
+              <td class="text-right">{{ r.nights }}</td>
+              <td class="text-right">{{ r.total_amount|floatformat:2 }}</td>
+              <td>
+                {% if r.status == 'pending' %}<span class="badge badge-warning">待确认</span>
+                {% elif r.status == 'confirmed' %}<span class="badge badge-info">已确认</span>
+                {% elif r.status == 'checked_in' %}<span class="badge badge-success">入住中</span>
+                {% elif r.status == 'checked_out' %}<span class="badge badge-secondary">已退房</span>
+                {% elif r.status == 'cancelled' %}<span class="badge badge-dark">已取消</span>
+                {% else %}<span class="badge badge-danger">未到店</span>{% endif %}
+              </td>
+              <td class="small text-muted">
+                {% if r.source == 'online' %}在线{% elif r.source == 'phone' %}电话{% else %}前台{% endif %}
+              </td>
+              <td class="text-right">
+                <a href="{% url 'core:my_reservation_detail' r.pk %}" class="btn btn-xs btn-outline-primary btn-sm">
+                  <i class="fas fa-eye mr-1"></i>详情
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="p-4 text-center text-muted">
+        <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+        没有符合条件的预订。
+        <a href="{% url 'core:available_rooms' %}">去查询可用房</a>
+      </div>
+    {% endif %}
+  </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+    <div class="card-footer clearfix">
+      {% include 'partials/pagination.html' %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

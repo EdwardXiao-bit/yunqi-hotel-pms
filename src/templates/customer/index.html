@@ -10,6 +10,9 @@
       <div class="card-header">
         <h3 class="card-title"><i class="fas fa-calendar-check mr-1"></i>我的预订</h3>
         <div class="card-tools">
+          <a href="{% url 'core:my_reservations' %}" class="btn btn-sm btn-outline-primary">
+            <i class="fas fa-list-alt mr-1"></i>全部预订
+          </a>
           <a href="{% url 'core:customer_home' %}" class="btn btn-tool" title="刷新"><i class="fas fa-sync-alt"></i></a>
         </div>
       </div>

@@ -58,6 +58,7 @@ NAV_SECTIONS: tuple[NavSection, ...] = (
         items=(
             NavItem("我的首页", "core:customer_home", "fas fa-home"),
             NavItem("可用房查询", "core:available_rooms", "fas fa-door-open"),
+            NavItem("我的预订", "core:my_reservations", "fas fa-list-alt"),
         ),
     ),
     NavSection(
@@ -65,6 +66,7 @@ NAV_SECTIONS: tuple[NavSection, ...] = (
         roles=(ROLE_RECEPTIONIST, ROLE_ADMIN),
         items=(
             NavItem("前台工作台", "core:reception_home", "fas fa-concierge-bell"),
+            NavItem("预订管理", "core:reception_reservations", "fas fa-clipboard-check"),
             NavItem("可用房查询", "core:available_rooms", "fas fa-door-open"),
         ),
     ),

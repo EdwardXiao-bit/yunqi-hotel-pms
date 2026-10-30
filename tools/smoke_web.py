@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import re
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -37,6 +38,16 @@ def check(ok: bool, name: str, detail: str = "") -> None:
     results.append((ok, name, detail))
     mark = "PASS" if ok else "FAIL"
     print(f"[{mark}] {name}{('  → ' + detail) if detail else ''}")
+
+
+def _login(username: str, password: str = PASSWORD):
+    """返回已登录的测试客户端（登录失败会抛断言，提示先修登录）。"""
+    from django.test import Client
+
+    client = Client()
+    resp = client.post("/login/", {"username": username, "password": password})
+    assert resp.status_code == 302, f"登录失败：{username} → {resp.status_code}"
+    return client
 
 
 def main() -> int:
@@ -203,6 +214,212 @@ def main() -> int:
             f"{role} 反向日期区间被拒绝并给中文提示",
             str(invalid.status_code),
         )
+
+    # ---------------------------------------------------------------- P03/P04/P06 预订（F04/F05）
+    # 读断言两种模式都跑；写断言（下单 / 确认 / 取消）只在离线模式跑，避免污染真库种子数据。
+    write_checks = args.mode == "sqlite"
+
+    for url in ("/reservations/new/", "/my/reservations/", "/reception/reservations/"):
+        resp = Client().get(url)
+        check(
+            resp.status_code == 302 and "/login/" in resp.get("Location", ""),
+            f"匿名访问 {url} 跳登录页",
+            resp.get("Location", ""),
+        )
+
+    customer_client = _login("zhangwei")
+    reception_client = _login("front01")
+    admin_client = _login("admin")
+
+    # 先拿一间在 [future_in, future_out) 可订的房间（与 P02 同一查询）
+    avail = customer_client.get(
+        "/rooms/available/",
+        {"check_in_date": future_in, "check_out_date": future_out, "room_type_id": "", "capacity": ""},
+    )
+    room_ids = re.findall(r"room_id=(\d+)", avail.content.decode("utf-8"))
+    check(bool(room_ids), "可用房页给出可下单的房间链接（P02 → P03）", f"{len(room_ids)} 个 room_id")
+    room_id = room_ids[0] if room_ids else ""
+
+    create_page = customer_client.get(
+        "/reservations/new/",
+        {"room_id": room_id, "check_in_date": future_in, "check_out_date": future_out},
+    )
+    create_body = create_page.content.decode("utf-8")
+    check(create_page.status_code == 200, "客户打开 P03 预订提交页 200", str(create_page.status_code))
+    check(
+        'name="guest_count"' in create_body
+        and 'name="guest_name"' in create_body
+        and 'name="guest_phone"' in create_body
+        and 'name="remark"' in create_body,
+        "P03 渲染入住人数 / 联系人 / 电话 / 备注字段",
+    )
+    check("提交预订" in create_body and "首晚价" in create_body, "P03 渲染提交按钮与首晚价提示")
+    check(
+        'name="room_id"' in create_body and f'value="{room_id}"' in create_body,
+        "P03 以隐藏域带入所选房间",
+    )
+
+    # 未开房态：没有 room_id 时给出中文引导
+    no_room = customer_client.get("/reservations/new/")
+    check(
+        no_room.status_code == 200 and "没有选定房间" in no_room.content.decode("utf-8"),
+        "P03 未带房间参数时给出“去查询可用房”引导",
+    )
+
+    # 越权：前台访问客户下单页可以（admin/前台也登录），但客户不能进前台预订管理
+    check(
+        customer_client.get("/reception/reservations/").status_code == 403,
+        "客户访问 /reception/reservations/ 得 403",
+    )
+    check(
+        reception_client.get("/reception/reservations/").status_code == 200,
+        "前台打开 P06 预订管理页 200",
+    )
+    check(
+        admin_client.get("/reception/reservations/").status_code == 200,
+        "管理员可打开 P06 预订管理页",
+    )
+
+    list_page = customer_client.get("/my/reservations/")
+    list_body = list_page.content.decode("utf-8")
+    check(list_page.status_code == 200, "客户打开 P04 我的预订页 200", str(list_page.status_code))
+    check("共 " in list_body and "条预订" in list_body, "P04 渲染预订条数与列表")
+    check('name="status"' in list_body, "P04 渲染状态筛选下拉框")
+
+    if write_checks:
+        booking = customer_client.post(
+            "/reservations/new/",
+            {
+                "room_id": room_id,
+                "check_in_date": future_in,
+                "check_out_date": future_out,
+                "guest_count": "2",
+                "guest_name": "张伟",
+                "guest_phone": "13800001101",
+                "remark": "冒烟测试下单",
+            },
+        )
+        detail_url = booking.get("Location", "")
+        check(
+            booking.status_code == 302 and detail_url.startswith("/my/reservations/"),
+            "P03 提交预订成功并跳订单详情",
+            f"{booking.status_code} {detail_url}",
+        )
+
+        detail = customer_client.get(detail_url)
+        detail_body = detail.content.decode("utf-8")
+        check(detail.status_code == 200, "P04 打开订单详情页 200", str(detail.status_code))
+        check("预订成功" in detail_body and "待确认" in detail_body, "订单详情显示成功提示与“待确认”状态")
+        check("逐日成交价格" in detail_body and "当日晚价" in detail_body, "订单详情渲染逐日成交价格表")
+        check("取消预订" in detail_body, "待确认订单详情显示“取消预订”按钮")
+
+        # 同一房间同一区间重复下单 → 被可用房预检查拦下（真库上则由 23P01 兜底）
+        duplicate = customer_client.post(
+            "/reservations/new/",
+            {
+                "room_id": room_id,
+                "check_in_date": future_in,
+                "check_out_date": future_out,
+                "guest_count": "2",
+                "guest_name": "张伟",
+                "guest_phone": "13800001101",
+                "remark": "",
+            },
+        )
+        check(
+            duplicate.status_code == 200 and "不可预订" in duplicate.content.decode("utf-8"),
+            "同房间同区间重复下单被拒绝并给中文提示",
+            str(duplicate.status_code),
+        )
+
+        # 入住人数超过房型容量 → 中文提示（E01 变体）
+        over_capacity = customer_client.post(
+            "/reservations/new/",
+            {
+                "room_id": room_id,
+                "check_in_date": future_in,
+                "check_out_date": future_out,
+                "guest_count": "8",
+                "guest_name": "张伟",
+                "guest_phone": "13800001101",
+                "remark": "",
+            },
+        )
+        check(
+            over_capacity.status_code == 200
+            and "最多可住" in over_capacity.content.decode("utf-8"),
+            "入住人数超过房型容量被拒绝并给中文提示",
+        )
+
+        # 手机号格式校验
+        bad_phone = customer_client.post(
+            "/reservations/new/",
+            {
+                "room_id": room_id,
+                "check_in_date": future_in,
+                "check_out_date": future_out,
+                "guest_count": "1",
+                "guest_name": "张伟",
+                "guest_phone": "12345",
+                "remark": "",
+            },
+        )
+        check(
+            bad_phone.status_code == 200 and "11 位手机号" in bad_phone.content.decode("utf-8"),
+            "联系电话格式错误被拒绝并给中文提示",
+        )
+
+        # 前台确认 → 取消 → 状态机再校验
+        pending_id = detail_url.rstrip("/").split("/")[-1]
+        confirmed = reception_client.post(
+            "/reception/reservations/",
+            {"reservation_id": pending_id, "action": "confirm", "next": "/reception/reservations/"},
+        )
+        check(confirmed.status_code == 302, "前台确认待确认预订成功（302 回列表）", str(confirmed.status_code))
+        manage_body = reception_client.get("/reception/reservations/", {"status": "confirmed"}).content.decode("utf-8")
+        check("已确认" in manage_body, "P06 按“已确认”筛选能看到刚确认的订单")
+
+        reconfirm = reception_client.post(
+            "/reception/reservations/",
+            {"reservation_id": pending_id, "action": "confirm", "next": "/reception/reservations/"},
+        )
+        follow = reception_client.get(reconfirm["Location"])
+        check(
+            "只有“待确认”的预订可以确认" in follow.content.decode("utf-8"),
+            "状态机拦截重复确认并给中文提示",
+        )
+
+        confirmed_detail = customer_client.get(detail_url).content.decode("utf-8")
+        check("已确认" in confirmed_detail, "客户详情页反映前台确认后的状态")
+
+        cancelled = reception_client.post(
+            "/reception/reservations/",
+            {"reservation_id": pending_id, "action": "cancel", "next": "/reception/reservations/"},
+        )
+        check(cancelled.status_code == 302, "前台取消已确认预订成功（302 回列表）", str(cancelled.status_code))
+        cancelled_detail = customer_client.get(detail_url).content.decode("utf-8")
+        check("已取消" in cancelled_detail and "取消预订" not in cancelled_detail, "取消后详情显示“已取消”且不再提供取消按钮")
+
+        cancel_again = customer_client.post(f"/my/reservations/{pending_id}/cancel/")
+        cancel_follow = customer_client.get("/my/reservations/")
+        check(
+            cancel_again.status_code == 302 and "已取消" in cancel_follow.content.decode("utf-8"),
+            "已取消订单再次取消被拦截",
+        )
+    else:
+        # 真库只读核对：用种子数据里“待确认”的订单验证管理页渲染
+        manage_page = reception_client.get("/reception/reservations/", {"status": "pending"})
+        manage_body = manage_page.content.decode("utf-8")
+        check(manage_page.status_code == 200, "P06 按状态筛选返回 200", str(manage_page.status_code))
+        check("待确认" in manage_body and "预订号" in manage_body, "P06 列表渲染预订号与状态")
+        check(
+            "确认" in manage_body,
+            "P06 待确认订单带“确认”操作按钮",
+        )
+        kw = reception_client.get("/reception/reservations/", {"keyword": "张伟"})
+        check(kw.status_code == 200 and "张伟" in kw.content.decode("utf-8"), "P06 关键字筛选命中客户姓名")
+        today_in = reception_client.get("/reception/reservations/", {"quick": "today"})
+        check(today_in.status_code == 200, "P06 “今日到店”快捷筛选返回 200", str(today_in.status_code))
 
     # ---------------------------------------------------------------- 汇总
     failed = [r for r in results if not r[0]]

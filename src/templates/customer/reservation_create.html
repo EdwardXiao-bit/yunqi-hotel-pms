@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}预订提交 · 云栖酒店{% endblock %}
+{% block page_title %}预订提交{% endblock %}
+{% block breadcrumb_current %}客户服务 / 预订提交{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-7">
+    <div class="card card-primary card-outline">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-calendar-plus mr-1"></i>预订信息</h3>
+        <div class="card-tools small text-muted">F04 · P03</div>
+      </div>
+
+      {% if errors %}
+        <div class="card-body pb-0">
+          <div class="alert alert-danger mb-3">
+            <h6 class="mb-2"><i class="fas fa-exclamation-triangle mr-1"></i>请先修正以下问题</h6>
+            <ul class="mb-0 pl-3">
+              {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+            </ul>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if room is None %}
+        <div class="card-body">
+          <div class="alert alert-warning mb-0">
+            <i class="fas fa-info-circle mr-1"></i>
+            没有选定房间。请先到「可用房查询」按日期筛选，再点具体房间的「预订」按钮进入本页。
+          </div>
+        </div>
+        <div class="card-footer">
+          <a href="{% url 'core:available_rooms' %}" class="btn btn-primary">
+            <i class="fas fa-door-open mr-1"></i>去查询可用房
+          </a>
+        </div>
+      {% else %}
+        <form method="post" action="{% url 'core:reservation_create' %}" id="reservation-form">
+          {% csrf_token %}
+          <input type="hidden" name="room_id" value="{{ room.pk }}">
+          <div class="card-body">
+            <div class="callout callout-info py-2">
+              <div class="d-flex justify-content-between flex-wrap">
+                <div>
+                  <strong>{{ room.room_no }}</strong> · {{ room.room_type.name }}
+                  <span class="text-muted">（{{ room.room_type.capacity }} 人 · {{ room.floor }} 层）</span>
+                </div>
+                <div class="text-muted small">
+                  首晚价 {{ first_night_price|floatformat:2 }} 元 · 预计合计 {{ estimate_total|floatformat:2 }} 元
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                <label for="check_in_date">入住日期 <span class="text-danger">*</span></label>
+                <input type="date" class="form-control" id="check_in_date" name="check_in_date"
+                       value="{{ check_in_date|date:'Y-m-d' }}" min="{{ today|date:'Y-m-d' }}" required>
+                <small class="text-muted">当天 14:00 后可办理入住</small>
+              </div>
+              <div class="form-group col-md-6">
+                <label for="check_out_date">离店日期 <span class="text-danger">*</span></label>
+                <input type="date" class="form-control" id="check_out_date" name="check_out_date"
+                       value="{{ check_out_date|date:'Y-m-d' }}" min="{{ today|date:'Y-m-d' }}" required>
+                <small class="text-muted">离店当天 12:00 前退房；共 {{ nights }} 晚</small>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group col-md-4">
+                <label for="guest_count">入住人数 <span class="text-danger">*</span></label>
+                <input type="number" class="form-control" id="guest_count" name="guest_count"
+                       value="{{ guest_count }}" min="1" max="{{ capacity }}" required>
+                <small class="text-muted">不超过 {{ capacity }} 人（房型容量）</small>
+              </div>
+              <div class="form-group col-md-4">
+                <label for="guest_name">联系人 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="guest_name" name="guest_name"
+                       value="{{ guest_name }}" maxlength="50" required>
+              </div>
+              <div class="form-group col-md-4">
+                <label for="guest_phone">联系电话 <span class="text-danger">*</span></label>
+                <input type="tel" class="form-control" id="guest_phone" name="guest_phone"
+                       value="{{ guest_phone }}" maxlength="20" required>
+              </div>
+            </div>
+
+            <div class="form-group mb-0">
+              <label for="remark">备注</label>
+              <textarea class="form-control" id="remark" name="remark" rows="2" maxlength="200"
+                        placeholder="如：需要高楼层、加床、晚到等（≤200 字）">{{ remark }}</textarea>
+            </div>
+
+            <p class="text-muted small mb-0 mt-2">
+              <i class="fas fa-shield-alt mr-1"></i>
+              提交后订单进入“待确认”，占用所选日期；“同一房间重叠日期不得存在两条有效预订”由数据库排他约束
+              <code>ex_reservation_room_overlap</code> 强制，冲突时页面会给出中文提示。
+            </p>
+          </div>
+          <div class="card-footer">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-check mr-1"></i>提交预订
+            </button>
+            <a href="{% url 'core:available_rooms' %}?check_in_date={{ check_in_date|date:'Y-m-d' }}&check_out_date={{ check_out_date|date:'Y-m-d' }}"
+               class="btn btn-default">返回查询</a>
+          </div>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card card-outline card-secondary">
+      <div class="card-header"><h3 class="card-title"><i class="fas fa-user mr-1"></i>下单账号</h3></div>
+      <div class="card-body">
+        <dl class="row mb-0 small">
+          <dt class="col-sm-4">客户</dt><dd class="col-sm-8">{{ customer.name }}</dd>
+          <dt class="col-sm-4">手机号</dt><dd class="col-sm-8 text-monospace">{{ customer.phone }}</dd>
+          <dt class="col-sm-4">证件号</dt>
+          <dd class="col-sm-8 text-monospace">{{ customer.id_card|default:'—' }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card card-outline card-secondary">
+      <div class="card-header"><h3 class="card-title"><i class="fas fa-receipt mr-1"></i>价格口径</h3></div>
+      <div class="card-body small">
+        <p class="mb-2">成交价按入住期间**逐晚**计算：命中价格方案（`rate_plan`）取方案价，否则取房型标准价；</p>
+        <p class="mb-2">确认后价格快照写入 `reservation_price`，后续调价不影响已确认金额；</p>
+        <p class="mb-0">取消或未到店会释放占用日期，押金与结算在入住/退房时处理。</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

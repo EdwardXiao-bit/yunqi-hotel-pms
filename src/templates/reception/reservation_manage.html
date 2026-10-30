@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}预订管理 · 云栖酒店{% endblock %}
+{% block page_title %}预订管理{% endblock %}
+{% block breadcrumb_current %}前台作业 / 预订管理{% endblock %}
+
+{% block content %}
+<div class="card card-primary card-outline">
+  <div class="card-header">
+    <h3 class="card-title"><i class="fas fa-clipboard-check mr-1"></i>共 {{ total }} 条预订</h3>
+    <div class="card-tools small text-muted">F05 · P06</div>
+  </div>
+  <div class="card-body pb-0">
+    <form method="get" action="{% url 'core:reception_reservations' %}" class="form-inline mb-2">
+      <select class="form-control form-control-sm mr-2 mb-1" name="status" aria-label="状态">
+        <option value="">全部状态</option>
+        {% for value, label in status_choices %}
+          <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <label class="mr-1 mb-1 small" for="date_from">入住</label>
+      <input type="date" class="form-control form-control-sm mr-2 mb-1" id="date_from" name="date_from" value="{{ date_from }}">
+      <label class="mr-1 mb-1 small" for="date_to">至</label>
+      <input type="date" class="form-control form-control-sm mr-2 mb-1" id="date_to" name="date_to" value="{{ date_to }}">
+      <input type="text" class="form-control form-control-sm mr-2 mb-1" name="keyword" value="{{ keyword }}"
+             placeholder="预订号 / 姓名 / 手机号" aria-label="关键字">
+      <button type="submit" class="btn btn-sm btn-primary mr-1 mb-1"><i class="fas fa-search mr-1"></i>筛选</button>
+      <a href="{% url 'core:reception_reservations' %}" class="btn btn-sm btn-default mb-1">重置</a>
+      <a href="{% url 'core:reception_reservations' %}?quick=today" class="btn btn-sm btn-outline-info ml-auto mb-1">
+        <i class="fas fa-plane-arrival mr-1"></i>今日到店
+      </a>
+    </form>
+  </div>
+  <div class="card-body p-0">
+    {% if reservations %}
+      <table class="table table-hover table-sm mb-0">
+        <thead>
+          <tr>
+            <th>预订号</th><th>客户</th><th>房号 / 房型</th><th>入住</th><th>离店</th>
+            <th class="text-right">房晚</th><th class="text-right">金额</th><th>状态</th><th class="text-right">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in reservations %}
+            <tr>
+              <td class="text-monospace">{{ r.reservation_no }}</td>
+              <td>{{ r.customer.name }}<br><span class="text-muted small text-monospace">{{ r.customer.phone }}</span></td>
+              <td>{{ r.room.room_no }} <span class="text-muted small">{{ r.room.room_type.name }}</span></td>
+              <td>{{ r.check_in_date|date:'Y-m-d' }}</td>
+              <td>{{ r.check_out_date|date:'Y-m-d' }}</td>
+              <td class="text-right">{{ r.nights }}</td>
+              <td class="text-right text-monospace">{{ r.total_amount|floatformat:2 }}</td>
+              <td>
+                {% if r.status == 'pending' %}<span class="badge badge-warning">待确认</span>
+                {% elif r.status == 'confirmed' %}<span class="badge badge-info">已确认</span>
+                {% elif r.status == 'checked_in' %}<span class="badge badge-success">入住中</span>
+                {% elif r.status == 'checked_out' %}<span class="badge badge-secondary">已退房</span>
+                {% elif r.status == 'cancelled' %}<span class="badge badge-dark">已取消</span>
+                {% else %}<span class="badge badge-danger">未到店</span>{% endif %}
+              </td>
+              <td class="text-right text-nowrap">
+                {% if r.status == 'pending' %}
+                  <form method="post" action="{% url 'core:reception_reservations' %}" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="reservation_id" value="{{ r.pk }}">
+                    <input type="hidden" name="action" value="confirm">
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="btn btn-xs btn-sm btn-success">
+                      <i class="fas fa-check mr-1"></i>确认
+                    </button>
+                  </form>
+                {% endif %}
+                {% if r.status == 'pending' or r.status == 'confirmed' %}
+                  <form method="post" action="{% url 'core:reception_reservations' %}" class="d-inline"
+                        data-confirm="确定取消预订 {{ r.reservation_no }} 吗？取消后占用日期立即释放。">
+                    {% csrf_token %}
+                    <input type="hidden" name="reservation_id" value="{{ r.pk }}">
+                    <input type="hidden" name="action" value="cancel">
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="btn btn-xs btn-sm btn-outline-danger">
+                      <i class="fas fa-times mr-1"></i>取消
+                    </button>
+                  </form>
+                {% endif %}
+                {% if r.status == 'confirmed' and r.check_in_date <= today %}
+                  <form method="post" action="{% url 'core:reception_reservations' %}" class="d-inline"
+                        data-confirm="把 {{ r.reservation_no }} 标记为未到店？占用日期会释放。">
+                    {% csrf_token %}
+                    <input type="hidden" name="reservation_id" value="{{ r.pk }}">
+                    <input type="hidden" name="action" value="no_show">
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="btn btn-xs btn-sm btn-outline-warning">
+                      <i class="fas fa-user-slash mr-1"></i>未到店
+                    </button>
+                  </form>
+                {% endif %}
+                {% if r.status == 'checked_out' or r.status == 'cancelled' or r.status == 'no_show' %}
+                  <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="p-4 text-center text-muted">
+        <i class="fas fa-inbox fa-2x mb-2 d-block"></i>没有符合条件的预订。
+      </div>
+    {% endif %}
+  </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+    <div class="card-footer clearfix">
+      {% include 'partials/pagination.html' %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
