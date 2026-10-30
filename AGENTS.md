@@ -1,7 +1,7 @@
 # 数据库系统原理课程设计 · 14 组
 
-> 项目根 `AGENTS.md`：给 AI 助手与组员共用的项目约定。**当前状态（2026-10-30）：选题、功能清单、技术栈、表结构与 SQL 脚本均已定案并实跑通过（阶段 0–1 完成，阶段 1 提前 4 天）；第一次提交件已产出待上传；Django 工程（阶段 3–5）未开始。**
-> 最后更新：2026-10-30（阶段 1 收尾 + `docs/03` 里程碑/任务状态回填）
+> 项目根 `AGENTS.md`：给 AI 助手与组员共用的项目约定。**当前状态（2026-10-30 晚）：选题、功能清单、技术栈、13 张表结构与 SQL 脚本均已定案并全部 psql 实跑通过（阶段 0–1 完成，阶段 1 提前 4 天）；第一次提交件已按组长文案重做为 v2（A4 三页，39 项断言全 PASS），待上传；Django 工程（阶段 3–5）未开始。**
+> 最后更新：2026-10-30 18:00（13 表版 SQL 实跑通过 + Q1–Q8 重跑；`docs/02`/`docs/05` 数字刷新；提交件 v2；前端节奏 §4.4）
 
 ## 1 项目事实（已确认）
 
@@ -37,7 +37,7 @@ yunqi-hotel-pms/
 │  ├─ 方案对比-六方案评估.md     选题决策依据：6 方案打分（已建）
 │  ├─ 自定选题候选.md           自拟题目备选 A–E（已建，未采用）
 │  ├─ 01-功能清单.md            项目名/描述/角色/9 项功能/异常清单（已建）
-│  ├─ 02-数据库设计.md          ER/关系、11 表结构、约束与索引、触发器与视图、数据样例（已建 2026-10-30）
+│  ├─ 02-数据库设计.md          ER/关系、13 表结构、约束与索引、触发器与视图、数据样例（已建 2026-10-30）
 │  ├─ 03-实施计划.md            里程碑/WBS/风险/测试验收（已建）
 │  ├─ 04-报告撰写规范.md        6 章大纲与版式参数（待写）
 │  ├─ 05-查询结果与测试记录.md   04_queries 的实测结果，报告 4 章素材（已建 2026-10-30）
@@ -54,7 +54,7 @@ yunqi-hotel-pms/
 │  ├─ 第14组_酒店客房预订与入住管理系统_功能清单.xlsx
 │  └─ images/feature-list.png   300 dpi 表格截图，Word 内嵌源
 ├─ work/                        脚本中间产物（可清理）
-├─ sql/                         00_database / 01_schema / 02_constraints / 03_seed / 04_queries 均已实跑
+├─ sql/                         00–04 均已写完并 psql 实跑通过（13 表版）；90_readonly_role.sql 备用（MCP 只读账号）
 └─ src/                         待建：Django 工程（manage.py、config/、core/、templates/、static/）
 ```
 
@@ -77,6 +77,12 @@ yunqi-hotel-pms/
   `during daterange GENERATED ALWAYS AS (daterange(check_in_date, check_out_date, '[)')) STORED`，
   `EXCLUDE USING gist (room_id WITH =, during WITH &&) WHERE (status IN ('pending','confirmed','checked_in'))` 建在生成列上（约束名 `ex_reservation_room_overlap`）。
 - **DDL 唯一事实来源是 `sql/` 脚本**（2026-10-30 定）：Django 模型一律 `managed = False`，表由脚本创建，`manage.py migrate` 只建 `auth_*`/`contenttypes`/`sessions` 等框架表；不再用 `migrations.RunSQL` 重写一份 DDL（避免两份漂移）。表结构文档见 `docs/02-数据库设计.md`。
+- **表数 13 张**（2026-10-30 晚定，按胡宇书提交件文案合并）：11 张业务表 + `room_block`（维修/停用**日期区间**）+ `reservation_price`（逐日成交价格）。
+- **房态 4 态**（2026-10-30 晚定）：`room.status` 只表达当下物理可用性 `available / cleaning / maintenance / disabled`；“已预订”“入住中”由 `reservation` / `check_in_record` 推导，**不再写进房态字段**。`room_status_log` 记录 4 态流转。
+- **维修/停用区间**：`room_block(room_id, start_date, end_date, block_type IN ('maintenance','disabled'), reason, created_by)`，生成列 `during` + `EXCLUDE USING gist (room_id WITH =, during WITH &&)`（`ex_room_block_overlap`）；可售房夜按它扣减。
+- **逐日成交价格**：`reservation_price(reservation_id, stay_date, price)`，`UNIQUE (reservation_id, stay_date)`；触发器 `fn_sync_reservation_prices()` 按 `rate_plan` 命中价/标准价逐日生成明细，`fn_refresh_reservation_total()` 汇总回 `reservation.total_amount`；后续调价不影响已确认价格。
+- **跨表冲突校验**：`fn_check_reservation_block()`（订单区间 vs 维修停用，23514）与 `fn_check_room_block_order()`（新增维修停用 vs 有效订单，23514）。
+- **营业收入口径**（2026-10-30 晚定）：按 `check_in_record.actual_checkout_at`（退房结算日期）归月，押金不计收入，退款冲减；入住率分母扣维修/停用房夜。
 
 ### 4.2 后端（Django，服务端渲染）
 
@@ -117,22 +123,23 @@ yunqi-hotel-pms/
 
 ### 已定案（留档，勿再讨论）
 - [x] 选题：给定方案六（酒店客房预订与入住管理系统）→ 本组题目定名 **云栖酒店客房预订与入住管理系统**，交付件文件名仍用方案名
-- [x] 第一次提交件：功能清单 xlsx（9 行 × 5 列，无脚注行）+ 300 dpi 截图 + Word 汇总（A4 两页）→ `deliverables/`，`verify_submission.py` 全绿
+- [x] 第一次提交件（**v2，2026-10-30 晚按胡宇书文案重做**）：`deliverables/第14组_酒店客房预订与入住管理系统.docx`（A4 三页：一 项目名称含“方案来源：给定方案六”/ 二 项目描述含规则 1–5 / 三 功能清单+截图 / 四 数据库要点）+ `_功能清单.xlsx`（12 行 × 5 列、print_area A1:E12、无页脚行）+ `deliverables/images/feature-list.png`（2299×2815 px，300 dpi 单页）；`tools/verify_submission.py` **39 项断言全 PASS**；组长原稿「（修改版）」副本已删，避免误传
 - [x] 项目描述、角色清单、9 项功能与异常清单 → `docs/01-功能清单.md`
 - [x] 技术栈：PostgreSQL 18 + Django 6.1 + AdminLTE 3.2（服务端模板渲染，单进程 8000）
 - [x] 区间排他约束落地方式：生成列 `during` + `EXCLUDE USING gist`（见 §4.1）
 - [x] 排期与分工 → `docs/03-实施计划.md`
 - [x] 远端仓库：`https://github.com/EdwardXiao-bit/yunqi-hotel-pms`（main 已推送 README / 文档 / 交付件）
 - [x] 仓库清理（2026-10-30）：截图改名 `deliverables/images/feature-list.png`（ASCII，避免非中文环境编码问题），删除早期 Word COM 实验脚本 `tools/convert_doc.ps1`，清掉旧项目名的过期交付件
-- [x] 数据库表数口径（2026-10-30 定，10-30 晚改口径）：**11 张正式表**（原「9 必选 + 2 可选」表述作废，`service_item` / `service_order` 已实现并接入 F07 结算）；`docs/01` §1 与 §7、`docs/02` §2/§5/§6.10-6.11、`docs/03` §1、README §5 与 §9 全部对齐
-- [x] 角色与功能编号（2026-10-30 修正）：删掉笔误 F10；客户 F03/F04/F05、前台 F02/F05/F06/F07/F08、管理员 F01–F09（超级管理员）
+- [x] 数据库表数口径（2026-10-30 定，**10-30 晚再次改口径**）：**13 张正式表** = 11 张业务表 + `room_block` + `reservation_price`（原「9 必选 + 2 可选」与「11 张」表述均作废）；`docs/01` §1/§7、`docs/02`、`docs/03`、README 全部对齐
+- [x] 提交件文案合并（2026-10-30 晚，用户定案 m01258）：①②③⑤ 四条冲突按最优方案合并 —— ① 加 `room_block` 存维修/停用区间；② 加 `reservation_price` 逐日成交价格 + 触发器同步；③ 房态改 4 态（`available/cleaning/maintenance/disabled`），已预订/入住中由订单推导；⑤ 入住率分母扣维修停用房夜；④ 营业收入改为**按退房结算日期（`actual_checkout_at`）归月**（原按 `paid_at` 收款日期）。功能清单 9 行文案、项目描述与核心业务规则 5 条采用胡宇书改写版；排版用本组版式（A4 + 宋体/黑体 + Excel 截图 + 页脚 PAGE）
+- [x] 角色与功能编号（2026-10-30 修正）：删掉笔误 F10；客户 F03/F04/F05、前台 F02（房态）/F03（查房）/F05/F06/F07/F08、管理员 F01–F09（超级管理员）
 - [x] WBS 人日（2026-10-30 修正）：T1–T17 明细相加 **28.5 人日**（原文“26.5”有误）；折算胡宇书 57% / 肖铭皓 43%，见 `docs/03` §3 人日与占比表
 - [x] 方案对比文档归档（2026-10-30）：补第 0 节定案记录（选方案六）并填完 §6 决策清单，§1 原判断标注为留档
-- [x] 数据库设计文档与建库脚本（2026-10-30）：`docs/02-数据库设计.md` 已建（ER/关系、11 表结构、约束清单、索引、触发器/视图/函数、边界用例 B1–B9、数据样例规划、Django 衔接）；`sql/00`、`01_schema.sql`、`02_constraints.sql`、`03_seed.sql` 全部 **psql 实跑通过**（11 表、2 条 EXCLUDE、8 触发器、2 视图、2 函数；DO 块实测 23P01；`overlap_pairs = 0`）；`sql/03_seed.sql` 由 `tools/build_seed_sql.py` 生成（种子 20261030，可复现）
+- [x] 数据库设计文档与建库脚本（2026-10-30）：`docs/02-数据库设计.md` 已按 13 表 / 房态 4 态重写（ER + 关系、13 表结构、约束清单、索引、触发器/视图/函数、边界用例 B1–B12、数据样例、Django 衔接）；`sql/00`–`04` 的 **13 表版已 psql 实跑通过**（13 表 / 3 条 EXCLUDE / 12 触发器 / 2 视图 / 8 函数；DO 块 9 步自检全过，实测 23P01 与 23514；`overlap_pairs = 0`、`blocked_overlap_pairs = 0`、金额 `mismatch = 0`）；`sql/03_seed.sql` 由 `tools/build_seed_sql.py` 生成（种子 20261030，可复现）
 - [x] 约束命名统一（2026-10-30）：排他约束改 `ex_reservation_room_overlap` / `ex_rate_plan_no_overlap`（原 `docs/01` 的 `ex_room_date_overlap` 已对齐）；`docs/01` §8 可用房查询改用生成列 `during`
-- [x] 种子数据扩量 + 增值服务两表转正（2026-10-30 晚）：`tools/build_seed_sql.py` 改参数重跑并 psql 实跑通过 → `app_user 27 / customer 30 / room_type 6 / room 40 / rate_plan 10 / reservation 96 / check_in_record 48 / payment 96 / room_status_log 35 / service_item 8 / service_order 57`；`docs/03` §4.3 目标值**全部达标**（T14 提前完成）；`service_item` / `service_order` 不再称“可选表”，接入 F07 结算（`service_order.amount` 生成列 + 单价快照）
-- [x] 查询脚本与实测记录（2026-10-30）：`sql/04_queries.sql`（Q1–Q8）**psql 实跑通过**；结果落 `work/04_queries_out.txt`（纯 UTF-8）并整理成 `docs/05-查询结果与测试记录.md`（报告第 4 章素材，v2 数据：Q1 可用房 36 间、Q2 张伟 9 条、Q3 30 行入住率、Q4 16 行营收（月度净收入 12400/24456/11092/2170）、Q5 房型 Top3、Q6 4 间长期空闲与取消率、Q7 视图余额、Q8 实测 23P01）
-- [x] EXPLAIN 证据（2026-10-30）：`fn_available_rooms(2026-12-20, 12-22)` 执行计划存 `work/explain_available_rooms.txt` 并写入 `docs/03` §5.3 —— Function Scan 36 行、`shared hit=21`、Execution 0.623 ms；F09 入住率查询的 EXPLAIN 随 T12 补
+- [x] 种子数据扩量 + 增值服务两表转正（2026-10-30 晚）：`tools/build_seed_sql.py` 改参数重跑并 psql 实跑通过 → `app_user 27 / customer 30 / room_type 6 / room 40 / rate_plan 10 / reservation 96 / check_in_record 48 / payment 96 / room_status_log 35 / service_item 8 / service_order 57`；**13 表版（v3）另加** `room_block 4` 段封禁、`reservation_price 239`（= 96 单房晚总数，触发器生成）、`room_status_log` 降为 **11**（手工 7 + 4 态流转触发器 4；35 是 v1 改 26 间房态的旧数）；`docs/03` §4.3 目标值**全部达标**（T14 提前完成）；`service_item` / `service_order` 不再称“可选表”，接入 F07 结算（`service_order.amount` 生成列 + 单价快照）
+- [x] 查询脚本与实测记录（2026-10-30）：`sql/04_queries.sql`（Q1–Q8）**已在 13 表版上 psql 实跑通过**，结果写进 `docs/05-查询结果与测试记录.md`（Q1 可用房 **35 间**、Q2 张伟 9 条、Q4 按退房月归集后 13 行、Q4-b 月度净收入 12400 / 23568 / 11092 / 376 合计 47436、Q5 高级大床房 20 单 55 房夜、Q6-a 4 间、Q6-b walk_in 17.65%）；原始输出 `work/04_queries_out.txt`
+- [x] EXPLAIN 证据（2026-10-30）：`fn_available_rooms(2026-12-20, 12-22)` 执行计划存 `work/explain_available_rooms.txt` 并写入 `docs/03` §5.3 —— **13 表版实测 Function Scan 35 行、`shared hit=233`、Execution 6.264 ms、Planning 0.048 ms**（两个 `NOT EXISTS` 分别走 EXCLUDE 的 gist 索引与 `idx_room_block_room_dates`）；F09 入住率查询的 EXPLAIN 随 T12 补
 - [x] 前端排期口径（2026-10-30 定，组内确认）：**不设独立前端阶段**，按功能纵向切片（每个 WBS 任务的产出同时含视图 + 模板 + 表单 + 提示），前端集中在 T4–T5 做骨架；`docs/03` 新增 §4.4「前端实现节奏」并把 WBS 表加「前端产物」列；`docs/页面约定.md` 已提前建立（14 业务页 + 3 错误页的 URL/模板/表单字段/负责人），作为 T4 的前置契约
 
 ### 进行中（按 `docs/03` WBS 推进）

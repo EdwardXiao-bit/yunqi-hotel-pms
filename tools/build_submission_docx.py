@@ -3,13 +3,14 @@
 
 输出：deliverables/第14组_酒店客房预订与入住管理系统.docx
 （文件名按课程要求“第x组_给定方案名称”，项目名仍为 云栖酒店客房预订与入住管理系统）
-内容：项目名称 + 项目描述 + 功能清单（Excel 表格截图）+ 数据库要点
-版式：A4、正文小四号宋体、行距 20 磅、标题黑体（沿用课程报告版式要求）。
+内容：一 项目名称 + 二 项目描述 + 三 功能清单（Excel 表格截图，1–2 张）+ 四 数据库要点
+文案：二、三 两节逐字取自 work/leader_docx_dump.txt（胡宇书修改版 docx 的文本转储）。
+版式：A4、正文小四号宋体、行距 20 磅、一级标题黑体 14pt、大标题黑体 18pt 加粗居中、页脚页码。
 """
+import glob
 import os
 
 from docx import Document
-from docx.enum.section import WD_SECTION
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls, qn
@@ -18,43 +19,50 @@ from docx.shared import Cm, Pt, RGBColor
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "deliverables")
 OUT = os.path.join(OUT_DIR, "第14组_酒店客房预订与入住管理系统.docx")
-IMG = os.path.join(OUT_DIR, "images", "feature-list.png")
+IMG_DIR = os.path.join(OUT_DIR, "images")
 
 PROJECT = "云栖酒店客房预订与入住管理系统"
 SCHEME = "酒店客房预订与入住管理系统"  # 教师给定方案六的原题名，文件名按此命名
 
-ONE_LINER = (
-    "面向中小型酒店的客房管理系统：客户按日期区间查询可用房间并在线预订，前台办理入住、退房与费用结算并调度房态，"
-    "管理员维护房型、房间与价格并查看入住率和营业收入统计；数据库层用日期区间排他约束保证同一房间在重叠日期内绝不会被重复预订。"
-)
-
-DESC_CORE = (
-    "酒店客房业务的核心矛盾是“房间在时间维度上的独占性”：同一间房在同一晚只能卖给一位客户，而一位客户可能连续住多晚、"
-    "也可能续住或提前退房。本系统把预订、入住、结算、房态建成相互关联的数据对象，围绕预订—入住—退房—统计展开。"
-)
-
-DESC_ROLES = [
-    "客户侧：按入住/离店日期、房型、人数查询可用房间；提交预订、查看与取消自己的预订；查看历史入住与消费记录。",
-    "前台侧：核验预订办理入住、办理退房并结算房费与增值服务、处理未到店与取消、调度房态（清洁中/维修中）。",
-    "管理员侧：维护房型、房间、按日期区间定价、员工账号，查看入住率、营业收入、热门房型、长期空闲房间等统计。",
+# ---- 二、项目描述（逐字取自组长修改版：总述 + 客户侧/前台侧/管理员侧 + 核心业务规则 5 条）----
+DESC_PARAS = [
+    "本系统面向中小型酒店，支持客户按日期查询房间并预订，前台办理入住、续住、退房与费用结算，"
+    "管理员维护基础信息并查看经营统计。系统聚焦预订—入住—退房—统计主流程，不包含会员营销、渠道直连与硬件对接。",
+    "客户侧：按入住日期、离店日期、房型及人数查询可预订房间；提交、查看和取消自己的预订；查询本人历史入住及消费记录。",
+    "前台侧：确认预订、处理取消和未到店，办理预订入住与散客入住、续住、提前退房及结算，维护清洁与维修状态。"
+    "管理员侧：维护房型、房间、价格及员工账号，查看入住率、营业收入、热门房型和长期空闲房间等统计。",
+    "核心业务规则如下：",
+    "（1）日期区间采用［入住日期，离店日期），离店日期必须晚于入住日期。例如，11月1日入住、11月3日离店，"
+    "占用两个房晚，不与11月3日入住的订单冲突。",
+    "（2）房间运行状态分为正常、清洁中、维修中、停用；预订状态单独管理。指定日期是否可订，"
+    "依据有效订单的占用区间及维修、停用安排判断；实际办理入住时还须确认房间已清洁且可交付。",
+    "（3）待确认、已确认及入住中的订单占用对应日期；已取消、未到店的订单释放占用。待确认订单由前台确认或取消；"
+    "未到店由前台按约定到店时限核实后处理。散客入住也须建立订单并检查整个入住区间，续住须检查新增区间。",
+    "（4）预订确认时保存逐日成交价格，散客入住时保存入住区间价格，后续调价不影响已确认价格。"
+    "续住新增日期按续住确认时的价格计费。提前退房按实际占用房晚结算，至少计一房晚；"
+    "超时退房由前台提示并处理，本期不自动加收超时费用。",
+    "（5）退房结算金额为房费加服务费，再扣除押金，多退少补；押金不计入营业收入。"
+    "数据库通过主外键、检查约束、日期区间排他约束与事务控制，统一校验预订和散客入住的房间占用，防止重叠日期重复占用。",
 ]
 
-DESC_SCOPE = (
-    "系统不扩展为完整酒店信息系统（不含会员营销、渠道直连与硬件对接），聚焦预订、入住、退房与经营统计主链路，"
-    "在 9 张相互关联的表上实现完整的主外键、检查约束、排他约束与多表统计查询。"
-)
+# ---- 三、功能清单说明（逐字取自组长修改版）----
+FUNC_NOTE = "功能清单共9项，覆盖基础信息维护、业务办理、状态管理及查询统计。P0为核心功能，P1为完善功能。"
 
-FUNC_NOTE = (
-    "功能清单共 9 项（要求 5–10 项），覆盖基础信息维护（F01、F02）、业务办理（F04、F06、F07）、"
-    "状态管理（F02、F05）与查询统计（F03、F09）四类。下表在 Excel 中制作，以截图形式附于本文档。"
-)
+# ---- 四、数据库要点（与 13 张表的设计口径一致）----
+DB_PARAS = [
+    "数据库共 13 张表：app_user、customer、room_type、room、rate_plan、reservation、"
+    "reservation_price（逐日成交价格）、check_in_record、payment、room_status_log、"
+    "room_block（维修/停用区间）、service_item、service_order。房间运行状态只保留四态："
+    "available（正常）、cleaning（清洁中）、maintenance（维修中）、disabled（停用）；"
+    "“已预订”“入住中”由订单与入住记录推导，不写入房态字段。",
+    "核心约束“同一房间在重叠日期内不得存在两条有效预订”由生成列 during 上的排他约束实现："
+    "during 由 daterange(check_in_date, check_out_date, '[)') 生成，约束为 "
+    "EXCLUDE USING gist (room_id WITH =, during WITH &&) WHERE (status IN ('pending','confirmed','checked_in'))。"
+    "维修、停用区间存于 room_block，与订单冲突时拒绝；逐日价格存于 reservation_price，订单总额随明细用触发器汇总；"
+    "押金不计营业收入，营业收入按退房结算日期归月；入住率的可售房晚需扣除维修、停用占用。",
+]
 
-DB_NOTE = (
-    "数据库设计要点：9 项功能落到 9 张相互关联的表上（app_user、customer、room_type、room、rate_plan、"
-    "reservation、check_in_record、payment、room_status_log）。核心约束“同一房间在重叠日期内不得存在两条有效预订”"
-    "用 PostgreSQL 的 EXCLUDE USING gist 在（房间号 =、日期区间 &&）上实现；房号唯一、离店晚于入住、"
-    "同一房型定价区间不重叠等亦以显式命名的 CHECK / UNIQUE / EXCLUDE 约束落在数据库层。"
-)
+IMG_DPI = 300  # 截图按 300 dpi 渲染（libreoffice-kit render --dpi 300）
 
 
 def set_run_font(run, cn="宋体", size=12, bold=False, en=None):
@@ -72,7 +80,7 @@ def set_run_font(run, cn="宋体", size=12, bold=False, en=None):
     rfonts.set(qn("w:hAnsi"), en or "Times New Roman")
 
 
-def body_para(doc, text, indent=True, size=12, space_after=0):
+def body_para(doc, text, indent=True, size=12, space_after=0, keep_with_next=False):
     p = doc.add_paragraph()
     pf = p.paragraph_format
     pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
@@ -80,6 +88,7 @@ def body_para(doc, text, indent=True, size=12, space_after=0):
     pf.space_before = Pt(0)
     pf.space_after = Pt(space_after)
     pf.first_line_indent = Pt(size * 2) if indent else Pt(0)
+    pf.keep_with_next = keep_with_next
     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     set_run_font(p.add_run(text), cn="宋体", size=size)
     return p
@@ -99,6 +108,17 @@ def h1(doc, text, page_break=False):
     return p
 
 
+def figure_images():
+    """按顺序返回要嵌入的截图：第 1 页 feature-list.png，其后 feature-list-2.png 等（或 page-0002.png）。"""
+    imgs = []
+    first = os.path.join(IMG_DIR, "feature-list.png")
+    if os.path.exists(first):
+        imgs.append(first)
+    imgs.extend(sorted(glob.glob(os.path.join(IMG_DIR, "feature-list-*.png"))))
+    imgs.extend(sorted(glob.glob(os.path.join(IMG_DIR, "page-*.png"))))
+    return imgs
+
+
 doc = Document()
 
 # ---- 页面：A4，页边距 ----
@@ -110,7 +130,7 @@ sec.bottom_margin = Cm(2.54)
 sec.left_margin = Cm(3.17)
 sec.right_margin = Cm(3.17)
 sec.footer_distance = Cm(1.5)
-USABLE_W = Cm(21.0 - 3.17 * 2)
+USABLE_W = Cm(21.0 - 3.17 * 2)  # 14.66cm
 
 # ---- 默认样式（避免 Normal 样式带回 Calibri） ----
 normal = doc.styles["Normal"]
@@ -118,7 +138,7 @@ normal.font.name = "Times New Roman"
 normal.font.size = Pt(12)
 normal.element.rPr.rFonts.set(qn("w:eastAsia"), "宋体")
 
-# ---- 标题区 ----
+# ---- 大标题 ----
 p = doc.add_paragraph()
 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 p.paragraph_format.space_before = Pt(6)
@@ -136,26 +156,36 @@ body_para(doc, "指导教师：郭际香")
 
 # ---- 二、项目描述 ----
 h1(doc, "二、项目描述")
-body_para(doc, ONE_LINER)
-body_para(doc, DESC_CORE)
-for line in DESC_ROLES:
-    body_para(doc, line)
-body_para(doc, DESC_SCOPE)
+for text in DESC_PARAS:
+    body_para(doc, text)
 
-# ---- 三、功能清单（另起一页：表格图占满整页宽度） ----
-h1(doc, "三、功能清单", page_break=True)
-body_para(doc, FUNC_NOTE)
+# ---- 三、功能清单（标题—说明—截图—图注用 keep_with_next 串成一块：
+#      截图放不下时整块一起换页，避免标题与表格图被拆到两页） ----
+h1(doc, "三、功能清单")
+body_para(doc, FUNC_NOTE, keep_with_next=True)
 
-p = doc.add_paragraph()
-p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-p.paragraph_format.space_before = Pt(6)
-p.paragraph_format.space_after = Pt(3)
-p.add_run().add_picture(IMG, width=USABLE_W)
+imgs = figure_images()
+if not imgs:
+    raise SystemExit(f"缺少截图：{os.path.join(IMG_DIR, 'feature-list.png')}")
 
-p = doc.add_paragraph()
-p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-p.paragraph_format.space_after = Pt(6)
-set_run_font(p.add_run("图 1　软件功能清单（Excel 表格截图）"), cn="宋体", size=10.5)
+for i, img in enumerate(imgs, start=1):
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_before = Pt(6)
+    p.paragraph_format.space_after = Pt(3)
+    p.paragraph_format.keep_with_next = True
+    p.add_run().add_picture(img, width=USABLE_W)
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_after = Pt(6)
+    cap = "图 1　软件功能清单（Excel 表格截图）" if i == 1 else f"图 {i}　软件功能清单（Excel 表格截图·续）"
+    set_run_font(p.add_run(cap), cn="宋体", size=10.5)
+
+# ---- 四、数据库要点 ----
+h1(doc, "四、数据库要点", page_break=True)
+for text in DB_PARAS:
+    body_para(doc, text)
 
 # ---- 页脚：组号 + 页码 ----
 footer = sec.footer
@@ -171,3 +201,4 @@ set_run_font(fp.add_run(" 页"), cn="宋体", size=9)
 
 doc.save(OUT)
 print("WROTE", OUT)
+print("IMAGES", len(imgs), [os.path.basename(i) for i in imgs])

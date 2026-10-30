@@ -30,17 +30,21 @@ SET search_path TO public;
 -- ----------------------------------------------------------------------------
 -- 0) 清理（依赖倒序；CASCADE 会把 02 里的约束/索引一并带走，重跑 01→02 即可）
 -- ----------------------------------------------------------------------------
-DROP TABLE IF EXISTS service_order    CASCADE;
-DROP TABLE IF EXISTS service_item     CASCADE;
-DROP TABLE IF EXISTS payment          CASCADE;
-DROP TABLE IF EXISTS room_status_log  CASCADE;
-DROP TABLE IF EXISTS check_in_record  CASCADE;
-DROP TABLE IF EXISTS reservation      CASCADE;
-DROP TABLE IF EXISTS rate_plan        CASCADE;
-DROP TABLE IF EXISTS room             CASCADE;
-DROP TABLE IF EXISTS room_type        CASCADE;
-DROP TABLE IF EXISTS customer         CASCADE;
-DROP TABLE IF EXISTS app_user         CASCADE;
+DROP TABLE IF EXISTS service_order     CASCADE;
+DROP TABLE IF EXISTS service_item      CASCADE;
+DROP TABLE IF EXISTS payment           CASCADE;
+DROP TABLE IF EXISTS room_status_log   CASCADE;
+DROP TABLE IF EXISTS check_in_record   CASCADE;
+DROP TABLE IF EXISTS reservation_price CASCADE;
+DROP TABLE IF EXISTS reservation       CASCADE;
+DROP TABLE IF EXISTS rate_plan         CASCADE;
+DROP TABLE IF EXISTS room_block        CASCADE;
+DROP TABLE IF EXISTS room              CASCADE;
+DROP TABLE IF EXISTS room_type         CASCADE;
+DROP TABLE IF EXISTS customer          CASCADE;
+DROP TABLE IF EXISTS app_user          CASCADE;
+
+-- 共 13 张表：11 张业务表 + room_block（维修/停用区间）+ reservation_price（逐日成交价格）
 
 -- =============================================================================
 -- 1) app_user 账号（客户 / 前台 / 管理员）
@@ -152,19 +156,54 @@ CREATE TABLE room (
     CONSTRAINT uq_room_room_no     UNIQUE (room_no),
     CONSTRAINT ck_room_floor       CHECK (floor BETWEEN -2 AND 99),
     CONSTRAINT ck_room_orientation CHECK (orientation IS NULL OR orientation IN ('north', 'south', 'east', 'west')),
-    CONSTRAINT ck_room_status      CHECK (status IN ('available', 'reserved', 'occupied', 'cleaning', 'maintenance', 'disabled'))
+    CONSTRAINT ck_room_status      CHECK (status IN ('available', 'cleaning', 'maintenance', 'disabled'))
 );
 
-COMMENT ON TABLE  room              IS '房间表：房号唯一，房态随业务流转';
+COMMENT ON TABLE  room              IS '房间表：房号唯一；status 只表示当下物理可用性，维修/停用区间另见 room_block，已预订/入住中由订单推导';
 COMMENT ON COLUMN room.room_type_id IS '所属房型';
 COMMENT ON COLUMN room.room_no      IS '房号，唯一（如 801）';
 COMMENT ON COLUMN room.floor        IS '楼层（地下为负）';
 COMMENT ON COLUMN room.orientation  IS '朝向：north/south/east/west';
-COMMENT ON COLUMN room.status       IS '房态：available 可用 / reserved 已预订 / occupied 入住中 / cleaning 清洁中 / maintenance 维修中 / disabled 停用';
+COMMENT ON COLUMN room.status       IS '房间当前运行状态：正常/清洁中/维修中/停用（available/cleaning/maintenance/disabled）；已预订与入住中由订单与入住记录推导，不存本字段';
 COMMENT ON COLUMN room.remark       IS '备注';
 
 -- =============================================================================
--- 5) rate_plan 按日期区间的价格方案
+-- 5) room_block 维修 / 停用区间
+--    一行 = 某房间在一段日期内不可售（维修中或停用）。
+--    冲突控制（都在 02_constraints.sql）：
+--      · 同房间的封禁区间互不重叠 —— 生成列 during + EXCLUDE（ex_room_block_overlap）；
+--      · 封禁区间与生效订单互不重叠 —— 触发器 trg_room_block_order_check / trg_reservation_block_check。
+-- =============================================================================
+CREATE TABLE room_block (
+    id          bigserial    NOT NULL,
+    room_id     bigint       NOT NULL,
+    start_date  date         NOT NULL,
+    end_date    date         NOT NULL,
+    block_type  varchar(20)  NOT NULL,
+    reason      varchar(200),
+    created_by  bigint,
+    created_at  timestamptz  NOT NULL DEFAULT now(),
+    CONSTRAINT pk_room_block          PRIMARY KEY (id),
+    CONSTRAINT fk_room_block_room     FOREIGN KEY (room_id) REFERENCES room (id) ON DELETE CASCADE,
+    CONSTRAINT fk_room_block_operator FOREIGN KEY (created_by) REFERENCES app_user (id) ON DELETE SET NULL,
+    CONSTRAINT ck_room_block_type     CHECK (block_type IN ('maintenance', 'disabled')),
+    CONSTRAINT ck_room_block_range    CHECK (end_date > start_date)
+);
+
+COMMENT ON TABLE  room_block             IS '房间维修/停用区间：一行 = 某房间一段不可售日期（半开区间 [start_date, end_date)）';
+COMMENT ON COLUMN room_block.id          IS '主键';
+COMMENT ON COLUMN room_block.room_id     IS '房间；房间删除时级联删除其封禁区间';
+COMMENT ON COLUMN room_block.start_date  IS '封禁开始日（含）';
+COMMENT ON COLUMN room_block.end_date    IS '封禁结束日（不含）：半开区间，end_date 当天恢复可售';
+COMMENT ON COLUMN room_block.block_type  IS '类型：maintenance 维修中 / disabled 停用';
+COMMENT ON COLUMN room_block.reason      IS '封禁原因（如“空调检修”）';
+COMMENT ON COLUMN room_block.created_by  IS '登记人（前台/管理员）；账号删除后置空';
+COMMENT ON COLUMN room_block.created_at  IS '登记时间';
+
+CREATE INDEX idx_room_block_room_dates ON room_block (room_id, start_date, end_date);
+
+-- =============================================================================
+-- 6) rate_plan 按日期区间的价格方案
 --    区间重叠由 02_constraints.sql 的 EXCLUDE 约束保证（valid_during 生成列在 02 里加）。
 -- =============================================================================
 CREATE TABLE rate_plan (
@@ -190,8 +229,10 @@ COMMENT ON COLUMN rate_plan.valid_from IS '生效起始日（含）';
 COMMENT ON COLUMN rate_plan.valid_to   IS '生效截止日（含）';
 
 -- =============================================================================
--- 6) reservation 预订主表
+-- 7) reservation 预订主表
 --    核心：check_in_date / check_out_date 为 date 列，02 里加生成列 during 并建 EXCLUDE。
+--    金额：total_amount / price_per_night 由 02 的触发器按 reservation_price 汇总维护，
+--          下单时仍要先给出初值（两列 NOT NULL），触发器随后校正。
 -- =============================================================================
 CREATE TABLE reservation (
     id              bigserial     NOT NULL,
@@ -226,8 +267,8 @@ COMMENT ON COLUMN reservation.room_id         IS '预订房间';
 COMMENT ON COLUMN reservation.check_in_date   IS '入住日期（含）';
 COMMENT ON COLUMN reservation.check_out_date  IS '离店日期（不含）：半开区间 [check_in, check_out)';
 COMMENT ON COLUMN reservation.guest_count     IS '入住人数';
-COMMENT ON COLUMN reservation.price_per_night IS '下单时每晚房价快照（价格调整不影响历史订单）';
-COMMENT ON COLUMN reservation.total_amount    IS '订单总金额 = 晚数 × price_per_night';
+COMMENT ON COLUMN reservation.price_per_night IS '平均成交单价快照 = total_amount ÷ 晚数，由触发器维护';
+COMMENT ON COLUMN reservation.total_amount    IS '订单总金额 = reservation_price 逐日明细之和，由触发器维护';
 COMMENT ON COLUMN reservation.status          IS '状态：pending 待确认 / confirmed 已确认 / checked_in 已入住 / checked_out 已退房 / cancelled 已取消 / no_show 未到店';
 COMMENT ON COLUMN reservation.source          IS '来源：online 线上 / phone 电话 / walk_in 散客';
 
@@ -237,7 +278,33 @@ CREATE INDEX idx_reservation_room_dates ON reservation (room_id, check_in_date, 
 CREATE INDEX idx_reservation_status     ON reservation (status);
 
 -- =============================================================================
--- 7) check_in_record 入住与结算记录
+-- 8) reservation_price 逐日成交价格
+--    一订单一行 = 一个房晚；价格为该晚成交价（下单或续住确认时固化，后续调价不影响）。
+--    明细由 02 的 fn_sync_reservation_prices() 逐日生成，
+--    reservation.total_amount / price_per_night 由 fn_refresh_reservation_total() 汇总本表。
+--    UNIQUE (reservation_id, stay_date) 同时是 ON CONFLICT 的冲突目标与级联删除的检索索引。
+-- =============================================================================
+CREATE TABLE reservation_price (
+    id             bigserial     NOT NULL,
+    reservation_id bigint        NOT NULL,
+    stay_date      date          NOT NULL,
+    price          numeric(10,2) NOT NULL,
+    created_at     timestamptz   NOT NULL DEFAULT now(),
+    CONSTRAINT pk_reservation_price              PRIMARY KEY (id),
+    CONSTRAINT fk_reservation_price_reservation  FOREIGN KEY (reservation_id) REFERENCES reservation (id) ON DELETE CASCADE,
+    CONSTRAINT uq_reservation_price_day          UNIQUE (reservation_id, stay_date),
+    CONSTRAINT ck_reservation_price_price        CHECK (price >= 0)
+);
+
+COMMENT ON TABLE  reservation_price                IS '逐日成交价格：一订单一行 = 一个房晚，价格为该晚成交价（下单或续住确认时固化，后续调价不影响）；reservation.total_amount 由触发器汇总本表维护';
+COMMENT ON COLUMN reservation_price.id             IS '主键';
+COMMENT ON COLUMN reservation_price.reservation_id IS '所属预订；预订删除时级联删除其价格明细';
+COMMENT ON COLUMN reservation_price.stay_date      IS '该房晚的日期（入住日含、离店日不含）';
+COMMENT ON COLUMN reservation_price.price          IS '该晚成交价（元），固化后不随 rate_plan 调价变化';
+COMMENT ON COLUMN reservation_price.created_at     IS '明细生成时间';
+
+-- =============================================================================
+-- 9) check_in_record 入住与结算记录
 --    一个预订最多一条入住记录（散客入住也走这里，reservation_id 指向系统内自动建的单）。
 -- =============================================================================
 CREATE TABLE check_in_record (
@@ -276,7 +343,7 @@ COMMENT ON COLUMN check_in_record.service_charge      IS '增值服务费合计'
 COMMENT ON COLUMN check_in_record.total_charge        IS '应收合计 = 房费 + 服务费（押金抵扣除后差额由 payment 体现）';
 
 -- =============================================================================
--- 8) payment 支付 / 退款流水
+-- 10) payment 支付 / 退款流水
 -- =============================================================================
 CREATE TABLE payment (
     id                bigserial     NOT NULL,
@@ -310,7 +377,9 @@ CREATE INDEX idx_payment_record  ON payment (check_in_record_id);
 CREATE INDEX idx_payment_paid_at ON payment (paid_at);
 
 -- =============================================================================
--- 9) room_status_log 房态变更日志（状态可追溯）
+-- 11) room_status_log 房态变更日志（状态可追溯）
+--     记录 4 态流转（available / cleaning / maintenance / disabled），
+--     “已预订”“入住中”不写 room.status，也不进本日志。
 -- =============================================================================
 CREATE TABLE room_status_log (
     id           bigserial    NOT NULL,
@@ -323,22 +392,22 @@ CREATE TABLE room_status_log (
     CONSTRAINT pk_room_status_log        PRIMARY KEY (id),
     CONSTRAINT fk_room_status_log_room   FOREIGN KEY (room_id) REFERENCES room (id) ON DELETE CASCADE,
     CONSTRAINT fk_room_status_log_user   FOREIGN KEY (changed_by) REFERENCES app_user (id) ON DELETE SET NULL,
-    CONSTRAINT ck_room_status_log_from  CHECK (from_status IS NULL OR from_status IN ('available', 'reserved', 'occupied', 'cleaning', 'maintenance', 'disabled')),
-    CONSTRAINT ck_room_status_log_to    CHECK (to_status IN ('available', 'reserved', 'occupied', 'cleaning', 'maintenance', 'disabled'))
+    CONSTRAINT ck_room_status_log_from  CHECK (from_status IS NULL OR from_status IN ('available', 'cleaning', 'maintenance', 'disabled')),
+    CONSTRAINT ck_room_status_log_to    CHECK (to_status IN ('available', 'cleaning', 'maintenance', 'disabled'))
 );
 
-COMMENT ON TABLE  room_status_log            IS '房态变更日志：谁在何时把房间状态从什么改成什么';
+COMMENT ON TABLE  room_status_log            IS '房态变更日志：谁在何时把房间状态从什么改成什么（只记 4 态物理状态）';
 COMMENT ON COLUMN room_status_log.room_id    IS '房间';
-COMMENT ON COLUMN room_status_log.from_status IS '变更前房态（首次记录为空）';
-COMMENT ON COLUMN room_status_log.to_status  IS '变更后房态';
+COMMENT ON COLUMN room_status_log.from_status IS '变更前房态（首次记录为空）：available/cleaning/maintenance/disabled';
+COMMENT ON COLUMN room_status_log.to_status  IS '变更后房态：available 正常 / cleaning 清洁中 / maintenance 维修中 / disabled 停用';
 COMMENT ON COLUMN room_status_log.changed_by IS '操作人（系统自动变更时为空）';
 COMMENT ON COLUMN room_status_log.reason     IS '变更原因';
 
 CREATE INDEX idx_room_status_log_room ON room_status_log (room_id, changed_at DESC);
 
 -- =============================================================================
--- 10) 可选表 A：service_item 增值服务项目
---     实现 F07 增值服务时才需要；不做的组可整段注释掉（与 docs/01 的“9 必选 + 2 可选”对应）
+-- 12) service_item 增值服务项目
+--     F07 结算的组成部分（房费 + 服务费 − 押金），属 13 张正式表之一
 -- =============================================================================
 CREATE TABLE service_item (
     id         bigserial     NOT NULL,
@@ -354,7 +423,7 @@ CREATE TABLE service_item (
     CONSTRAINT ck_service_item_price CHECK (price >= 0)
 );
 
-COMMENT ON TABLE  service_item        IS '（可选）增值服务项目：早餐、洗衣、接送等';
+COMMENT ON TABLE  service_item        IS '增值服务项目：早餐、洗衣、接送等（F07 结算用）';
 COMMENT ON COLUMN service_item.code   IS '服务编码，唯一';
 COMMENT ON COLUMN service_item.name   IS '服务名称';
 COMMENT ON COLUMN service_item.unit   IS '计量单位';
@@ -362,7 +431,7 @@ COMMENT ON COLUMN service_item.price  IS '单价（元）';
 COMMENT ON COLUMN service_item.is_active IS '是否在售';
 
 -- =============================================================================
--- 11) 可选表 B：service_order 增值服务消费明细
+-- 13) service_order 增值服务消费明细
 -- =============================================================================
 CREATE TABLE service_order (
     id                bigserial     NOT NULL,
@@ -379,7 +448,7 @@ CREATE TABLE service_order (
     CONSTRAINT ck_service_order_unit_price       CHECK (unit_price >= 0)
 );
 
-COMMENT ON TABLE  service_order                   IS '（可选）增值服务消费明细';
+COMMENT ON TABLE  service_order                   IS '增值服务消费明细（金额并入入住结算）';
 COMMENT ON COLUMN service_order.check_in_record_id IS '所属入住记录';
 COMMENT ON COLUMN service_order.service_item_id   IS '服务项目';
 COMMENT ON COLUMN service_order.quantity          IS '数量';
@@ -390,7 +459,7 @@ COMMENT ON COLUMN service_order.ordered_at        IS '消费时间';
 CREATE INDEX idx_service_order_record ON service_order (check_in_record_id);
 
 -- ----------------------------------------------------------------------------
--- 自检：列出本次建成的表（期望 11 行：9 必选 + 2 可选）
+-- 自检：列出本次建成的表（期望 13 行：11 张业务表 + room_block + reservation_price）
 -- ----------------------------------------------------------------------------
 SELECT c.relname                                    AS table_name,
        obj_description(c.oid, 'pg_class')           AS comment,

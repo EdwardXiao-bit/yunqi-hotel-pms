@@ -6,8 +6,10 @@
 为什么用脚本生成而不是手写 SQL：
 - 96 条预订必须保证「同一房间 + 活跃状态」的时间区间互不重叠（EXCLUDE 约束），
   手写极易撞车；脚本里维护 busy[room_id] 区间表，落库前就做冲突检测。
-- 需要精确的条数口径（30 客户 / 96 预订 / 48 入住 / ≥80 支付 / 8 服务项目 /
-  ≥50 服务明细 / 6 种房态全覆盖），脚本末尾 assert 校验，生成物与文档一致。
+- 需要精确的条数口径（30 客户 / 96 预订 / 48 入住 / 96 支付 / 8 服务项目 /
+  57 服务明细 / 4 态房态 / 4 条不可售区间），脚本末尾 assert 校验，生成物与文档一致。
+- 维修/停用不可售（room_block）的选房也在这里做冲突检测：区间内有任何预订的房间不选，
+  否则数据库的交叉校验触发器会以 check_violation 拒绝整批数据。
 - 固定随机种子，同样输入永远生成同样输出，便于 diff 与复现。
 
 用法：
@@ -173,13 +175,26 @@ for name, _bed, _area, _cap, price, _desc in ROOM_TYPES:
 assert len(RATE_PLANS) == 10, len(RATE_PLANS)
 
 
-def price_for(room_id: int, stay_start: date) -> Decimal:
-    """落单时的每晚房价快照：命中价格方案用方案价，否则用房型标准价。"""
+def night_price(room_id: int, night: date) -> Decimal:
+    """某一晚的成交价：命中价格方案用方案价，否则用房型标准价。
+
+    与数据库触发器 fn_sync_reservation_prices() 的口径一致（逐日取价），
+    因此生成器写进去的 price_per_night / total_amount 与触发器重算的结果相同，
+    不会出现「订单总额」与「入住记录房费」两套数字。
+    """
     tname = TYPE_OF_ROOM[room_id]
     for plan_type, start, end, price in RATE_PLANS:
-        if plan_type == tname and start <= stay_start <= end:
+        if plan_type == tname and start <= night <= end:
             return price
     return BASE_PRICE[tname]
+
+
+def stay_total(room_id: int, start: date, end: date) -> Decimal:
+    """整段房晚的房费合计 = 逐晚成交价之和（离店日不计）。"""
+    total = Decimal("0.00")
+    for i in range((end - start).days):
+        total += night_price(room_id, start + timedelta(days=i))
+    return total.quantize(Decimal("0.01"))
 
 
 # =============================================================================
@@ -200,7 +215,7 @@ def add(room_id: int, start: date, end: date, status: str, customer_id: int,
         source: str, remark: str = "") -> dict:
     global _seq
     _seq += 1
-    price = price_for(room_id, start)
+    total = stay_total(room_id, start, end)
     nights = (end - start).days
     room = {
         "no": f"R{start:%Y%m%d}{_seq:03d}",
@@ -210,8 +225,8 @@ def add(room_id: int, start: date, end: date, status: str, customer_id: int,
         "end": end,
         "nights": nights,
         "guest_count": min(rng.randint(1, 3), CAPACITY[TYPE_OF_ROOM[room_id]]),
-        "price": price,
-        "total": (price * nights).quantize(Decimal("0.01")),
+        "price": (total / nights).quantize(Decimal("0.01")),
+        "total": total,
         "status": status,
         "source": source,
         "remark": remark,
@@ -428,25 +443,132 @@ assert kind_counts == EXPECTED_KINDS, f"支付类型分布不符：{kind_counts}
 assert len(payments) >= 80, f"支付流水应 ≥80 笔（docs/03 §4.3 目标），实际 {len(payments)}"
 
 # =============================================================================
-# 6. 房态派生（六种房态全覆盖）
+# 6. 房态（4 态）与不可售区间（room_block）
 # =============================================================================
+#
+# 房态只表达「当下」的物理可用性：available 正常 / cleaning 清洁中 /
+# maintenance 维修中 / disabled 停用。
+# 「已预订」「入住中」不再写进房态字段，由 reservation / check_in_record 推导；
+# 维修与停用的「日期区间」落到 room_block 表，可售房查询与入住率统计按它扣减。
+
+ADMIN_USER_ID = 1              # app_user 第 1 条是 admin
+HIST_ROOM = ROOM_BY_NO["801"]  # 手工房态轨迹的样本房间，最终保持 available
+
+# 不可售区间：(block_type, 起始日, 结束日, 原因)
+# 语义与房态一致：区间覆盖演示日 2026-12-15 的维修房当前房态为 maintenance，
+# 长期停用房为 disabled，9 月那段维修已结束、房间已恢复 available。
+BLOCK_SPECS = [
+    ("maintenance", date(2026, 9, 10), date(2026, 9, 25),
+     "卫浴翻新（历史区间，已结束；用于扣减 9 月可售房夜）"),
+    ("maintenance", date(2026, 12, 1), date(2026, 12, 20),
+     "空调机组检修，房间不可售（覆盖演示日 2026-12-15）"),
+    ("disabled", date(2026, 11, 1), date(2027, 6, 30),
+     "楼层整体改造，房间长期停用"),
+    ("maintenance", date(2026, 12, 18), date(2026, 12, 24),
+     "计划内空调保养：房间当前仍为正常状态，但该区间不可售（演示可用房查询按区间排除）"),
+]
+
+
+def no_stay_overlap(room_id: int, start: date, end: date) -> bool:
+    """该房间在 [start, end) 内没有任何预订（不限状态），供 room_block 选房用。
+
+    比排他约束更严：连已退房/已取消的历史单也避开，这样无论数据库侧
+    交叉校验触发器按「全部状态」还是「仅活跃状态」判定，都不会被拒绝。
+    """
+    return all(end <= bs or start >= be for bs, be in busy[room_id])
+
+
+def active_stay_overlap(room_id: int, start: date, end: date) -> bool:
+    """该房间在 [start, end) 内是否有活跃状态（占用中/待入住）的预订。"""
+    return any(
+        r["room_id"] == room_id and r["status"] in ACTIVE
+        and start < r["end"] and r["start"] < end
+        for r in reservations
+    )
+
+
+used_block_rooms: set[int] = {HIST_ROOM}
+
+
+def pick_block_room(start: date, end: date) -> tuple[int, bool]:
+    """挑一间在区间内没有入住史的房间；退化时只要求没有活跃订单。
+
+    返回 (room_id, 是否退化)。退化只影响「历史单是否与维修区间并存」的观感，
+    不影响约束与统计口径（历史维修区间本来就不该有活跃订单）。
+    """
+    bases = [rid for rid in ALL_ROOM_IDS if rid not in used_block_rooms]
+    cands = [rid for rid in bases if no_stay_overlap(rid, start, end)]
+    relaxed = False
+    if not cands:
+        cands = [rid for rid in bases if not active_stay_overlap(rid, start, end)]
+        relaxed = True
+    if not cands:
+        raise RuntimeError(f"{start}~{end} 找不到可安排维修/停用的房间（房间数不足）")
+    rid = cands[0]
+    used_block_rooms.add(rid)
+    return rid, relaxed
+
+
+# 先挑约束最强的区间（天数最长），避免长区间被短区间抢走候选房间
+room_blocks: list[dict] = []
+picked: dict[tuple[str, date, date], int] = {}
+relaxed_specs: list[str] = []
+for spec in sorted(BLOCK_SPECS, key=lambda s: (s[2] - s[1]), reverse=True):
+    block_type, start, end, reason = spec
+    rid, relaxed = pick_block_room(start, end)
+    picked[(block_type, start, end)] = rid
+    if relaxed:
+        relaxed_specs.append(f"{block_type} {start}~{end}")
+for block_type, start, end, reason in BLOCK_SPECS:
+    rid = picked[(block_type, start, end)]
+    room_blocks.append({
+        "room_id": rid,
+        "room_no": ROOMS[rid - 1][0],
+        "block_type": block_type,
+        "start": start,
+        "end": end,
+        "reason": reason,
+        # 建档时间早于区间起点，时间线自洽（固定值便于 diff 与复现）
+        "created_at": (start - timedelta(days=10), 9, 0),
+    })
+
+assert len(room_blocks) == 4, len(room_blocks)
+assert len({b["room_id"] for b in room_blocks}) == 4, "room_block 的房间必须互不相同"
+
+# 当前房态：覆盖演示日的维修/停用房间分别是 maintenance / disabled；
+# 历史维修那间已恢复 available，另挑 2 间空闲房置 cleaning，其余 36 间 available。
+current_maintenance = next(
+    b["room_id"] for b in room_blocks
+    if b["block_type"] == "maintenance" and b["start"] <= ANCHOR < b["end"])
+current_disabled = next(
+    b["room_id"] for b in room_blocks
+    if b["block_type"] == "disabled" and b["start"] <= ANCHOR < b["end"])
 
 final_status: dict[int, str] = {rid: "available" for rid in ALL_ROOM_IDS}
-for r in reservations:
-    if r["status"] == "checked_in":
-        final_status[r["room_id"]] = "occupied"
-for r in reservations:
-    if r["status"] in ("confirmed", "pending") and final_status[r["room_id"]] == "available":
-        final_status[r["room_id"]] = "reserved"
+cleaning_rooms = [rid for rid in ALL_ROOM_IDS if rid not in used_block_rooms][:2]
+assert len(cleaning_rooms) == 2, cleaning_rooms
+for rid in cleaning_rooms:
+    final_status[rid] = "cleaning"
+final_status[current_maintenance] = "maintenance"
+final_status[current_disabled] = "disabled"
 
-free_rooms = [rid for rid in ALL_ROOM_IDS if final_status[rid] == "available"]
-rng.shuffle(free_rooms)
-for rid, status in zip(free_rooms, ["cleaning", "cleaning", "maintenance", "disabled"]):
-    final_status[rid] = status
+ROOM_STATUS_EXPECT = {"available": 36, "cleaning": 2, "maintenance": 1, "disabled": 1}
+status_cover = {s: sum(1 for v in final_status.values() if v == s) for s in ROOM_STATUS_EXPECT}
+assert status_cover == ROOM_STATUS_EXPECT, f"房态分布不符：{status_cover} != {ROOM_STATUS_EXPECT}"
 
-status_cover = {s: sum(1 for v in final_status.values() if v == s) for s in
-                ("available", "reserved", "occupied", "cleaning", "maintenance", "disabled")}
-assert all(v >= 1 for v in status_cover.values()), f"房态未全覆盖：{status_cover}"
+# 手工房态轨迹（4 态值，轨迹自洽：初始可用 → 清扫往返 → 维修往返 → 停用往返）
+MANUAL_STATUS_LOG = [
+    (None, "available", 2, (date(2026, 11, 1), 9, 0), "房间交付，初始化为可用"),
+    ("available", "cleaning", 3, (date(2026, 11, 5), 10, 20), "退房后转清扫"),
+    ("cleaning", "available", 3, (date(2026, 11, 5), 15, 40), "清扫完成，恢复可用"),
+    ("available", "maintenance", 2, (date(2026, 11, 20), 8, 30), "空调检修"),
+    ("maintenance", "available", 2, (date(2026, 11, 20), 17, 10), "检修完成，恢复可用"),
+    ("available", "disabled", 2, (date(2026, 11, 25), 9, 0), "整房深度翻新，暂停使用"),
+    ("disabled", "available", 2, (date(2026, 11, 30), 18, 0), "翻新完成，恢复可用"),
+]
+STATUS_CHANGE_ROOMS = [rid for rid in ALL_ROOM_IDS if final_status[rid] != "available"]
+assert len(MANUAL_STATUS_LOG) == 7, len(MANUAL_STATUS_LOG)
+assert len(STATUS_CHANGE_ROOMS) == 4, STATUS_CHANGE_ROOMS  # 2 cleaning + 1 maintenance + 1 disabled
 
 # =============================================================================
 # 7. SQL 输出
@@ -490,12 +612,16 @@ w("-- 数据规模（与 docs/02-数据库设计.md 第 10 节一致）：")
 w(f"--   app_user        {len(APP_USERS)}  （1 管理员 + 2 前台 + {len(APP_USERS) - 3} 客户账号，口令统一 Hotel@123）")
 w(f"--   customer        {len(CUSTOMERS)}  （{sum(1 for c in CUSTOMERS if c[0] is not None)} 个关联账号 + {sum(1 for c in CUSTOMERS if c[0] is None)} 个线下散客）")
 w("--   room_type       6   （标准间 / 高级大床房 / 豪华双床房 / 家庭房 / 行政套房 / 无障碍房）")
-w("--   room           40   （5–12 层，每层 5 间，六种房态全覆盖）")
+w("--   room           40   （5–12 层，每层 5 间；4 态房态 36 available + 2 cleaning + 1 maintenance + 1 disabled）")
+w(f"--   room_block      {len(room_blocks)}   （{sum(1 for b in room_blocks if b['block_type'] == 'maintenance')} 段维修 + {sum(1 for b in room_blocks if b['block_type'] == 'disabled')} 段停用；与房态语义一致，可售房与入住率按它扣减）")
 w("--   rate_plan      10   （国庆加价 ×5 房型 + 元旦加价 ×5 房型）")
 w(f"--   reservation    {len(reservations)}  （六种状态，含 B3 首尾相接、B4 取消后重订两组边界数据）")
+w("--   reservation_price  不在此插入：由触发器 fn_sync_reservation_prices() 按 rate_plan/标准价")
+w("--                      逐日生成，再由 fn_refresh_reservation_total() 汇总回 reservation.total_amount；")
+w("--                      行数 = 全部预订的房晚数（末尾自检 SELECT 校验）")
 w(f"--   check_in_record {len(checkins)}  （{sum(1 for r in checkins if r['status'] == 'checked_out')} 条已退房 + {sum(1 for r in checkins if r['status'] == 'checked_in')} 条在住）")
 w(f"--   payment        {len(payments)}  （{kind_counts.get('deposit', 0)} 押金 + {kind_counts.get('room_fee', 0)} 房费尾款 + {kind_counts.get('refund', 0)} 退款 + {kind_counts.get('service_fee', 0)} 在住服务费）")
-w(f"--   room_status_log    {7 + sum(1 for v in final_status.values() if v != 'available')}（手工历史 7 + 触发器自动 {sum(1 for v in final_status.values() if v != 'available')} 条）")
+w(f"--   room_status_log    {len(MANUAL_STATUS_LOG) + len(STATUS_CHANGE_ROOMS)}（手工历史 {len(MANUAL_STATUS_LOG)} + 触发器自动 {len(STATUS_CHANGE_ROOMS)} 条）")
 w(f"--   service_item    {len(SERVICE_ITEMS)} / service_order {order_count}（增值服务，F07 结算与统计用）")
 w("--")
 w("-- 执行：")
@@ -513,7 +639,7 @@ w()
 w("BEGIN;")
 w()
 w("-- 清空并按外键倒序重置自增（幂等）")
-w("TRUNCATE TABLE service_order, service_item, payment, check_in_record,")
+w("TRUNCATE TABLE reservation_price, room_block, service_order, service_item, payment, check_in_record,")
 w("               room_status_log, reservation, rate_plan, room,")
 w("               room_type, customer, app_user")
 w("    RESTART IDENTITY CASCADE;")
@@ -568,7 +694,8 @@ w()
 
 # --- room ---
 w("-- ----------------------------------------------------------------------------")
-w("-- 5) room 房间（先统一建成 available，再在文末按业务流转改房态以产生变更日志）")
+w("-- 5) room 房间（先统一建成 available，第 12 节再把 4 间改成 cleaning/maintenance/disabled，")
+w("--    由 AFTER UPDATE 触发器写入 room_status_log；房态只有 4 态，已预订/入住中不写进房态）")
 w("-- ----------------------------------------------------------------------------")
 w("INSERT INTO room (room_type_id, room_no, floor, orientation, status, remark) VALUES")
 rows = []
@@ -598,9 +725,29 @@ for r in reservations:
 w(",\n".join(rows) + ";")
 w()
 
+# --- room_block ---
+w("-- ----------------------------------------------------------------------------")
+w(f"-- 7) room_block 不可售区间 {len(room_blocks)} 条（维修/停用，可售房夜与入住率按它扣减）")
+w("--    每条区间的房间都由生成器避开任意状态的订单挑出（与活跃订单相交会被")
+w("--    fn_check_room_block_order() 以 23514 拒绝），所以本段放在 reservation 之后执行，")
+w("--    让跨表冲突校验真正跑到 96 条订单上：")
+for b in room_blocks:
+    w(f"--      {b['room_no']}  {b['block_type']:<11} {b['start']} ~ {b['end']}  {b['reason']}")
+w("--    房态与区间语义一致：覆盖演示日 2026-12-15 的两间分别是 maintenance / disabled，")
+w("--    历史维修那间（已结束）恢复 available。")
+w("-- ----------------------------------------------------------------------------")
+w("INSERT INTO room_block (room_id, start_date, end_date, block_type, reason, created_by, created_at) VALUES")
+rows = [
+    f"    ({b['room_id']}, {d(b['start'])}, {d(b['end'])}, {q(b['block_type'])}, "
+    f"{q(b['reason'])}, {ADMIN_USER_ID}, {ts(b['created_at'])})"
+    for b in room_blocks
+]
+w(",\n".join(rows) + ";")
+w()
+
 # --- check_in_record ---
 w("-- ----------------------------------------------------------------------------")
-w(f"-- 7) check_in_record 入住记录 {len(checkins)} 条（{sum(1 for r in checkins if r['status'] == 'checked_out')} 已退房 + {sum(1 for r in checkins if r['status'] == 'checked_in')} 在住，在住的 actual_checkout_at 为空）")
+w(f"-- 8) check_in_record 入住记录 {len(checkins)} 条（{sum(1 for r in checkins if r['status'] == 'checked_out')} 已退房 + {sum(1 for r in checkins if r['status'] == 'checked_in')} 在住，在住的 actual_checkout_at 为空）")
 w("-- ----------------------------------------------------------------------------")
 w("INSERT INTO check_in_record (reservation_id, guest_name, guest_phone, guest_id_card,")
 w("                             check_in_at, actual_checkout_at, deposit_amount,")
@@ -619,7 +766,7 @@ w()
 
 # --- service_item / service_order ---
 w("-- ----------------------------------------------------------------------------")
-w("-- 8) service_item 增值服务项目 + service_order 消费明细")
+w("-- 9) service_item 增值服务项目 + service_order 消费明细")
 w("-- ----------------------------------------------------------------------------")
 w("INSERT INTO service_item (code, name, unit, price) VALUES")
 rows = [f"    ({q(code)}, {q(name)}, {q(unit)}, {money(price)})" for code, name, unit, price in SERVICE_ITEMS]
@@ -641,7 +788,7 @@ w()
 
 # --- payment ---
 w("-- ----------------------------------------------------------------------------")
-w(f"-- 9) payment 支付流水 {len(payments)} 笔（kind=refund 的金额也记正数，靠 kind 区分方向）")
+w(f"-- 10) payment 支付流水 {len(payments)} 笔（kind=refund 的金额也记正数，靠 kind 区分方向）")
 w("-- ----------------------------------------------------------------------------")
 w("INSERT INTO payment (payment_no, check_in_record_id, kind, method, amount, paid_at,")
 w("                     operator_user_id, remark) VALUES")
@@ -657,24 +804,23 @@ w()
 
 # --- room_status_log 手工历史 ---
 w("-- ----------------------------------------------------------------------------")
-w("-- 10) room_status_log 手工历史（触发器会自动记录房态变更，这里补几段典型轨迹）")
+w(f"-- 11) room_status_log 手工历史 {len(MANUAL_STATUS_LOG)} 条（4 态轨迹：可用 ↔ 清扫 / 维修 / 停用，")
+w("--     用于展示 state 流转；第 12 节的房态变更由触发器自动追加，不在此手写）")
 w("-- ----------------------------------------------------------------------------")
 hist_room = ROOM_BY_NO["801"]
 w("INSERT INTO room_status_log (room_id, from_status, to_status, changed_by, changed_at, reason) VALUES")
-w(f"    ({hist_room}, NULL, 'available', 2, TIMESTAMPTZ '2026-11-01 09:00:00+08', '房间交付，初始化为可用'),")
-w(f"    ({hist_room}, 'available', 'reserved', 2, TIMESTAMPTZ '2026-11-05 10:20:00+08', '客人电话预订'),")
-w(f"    ({hist_room}, 'reserved', 'occupied', 2, TIMESTAMPTZ '2026-12-02 14:05:00+08', '办理入住'),")
-w(f"    ({hist_room}, 'occupied', 'cleaning', 3, TIMESTAMPTZ '2026-12-05 12:15:00+08', '退房后转清扫'),")
-w(f"    ({hist_room}, 'cleaning', 'available', 3, TIMESTAMPTZ '2026-12-05 15:40:00+08', '清扫完成，恢复可用'),")
-w(f"    ({hist_room}, 'available', 'maintenance', 2, TIMESTAMPTZ '2026-12-10 08:30:00+08', '空调检修'),")
-w(f"    ({hist_room}, 'maintenance', 'available', 2, TIMESTAMPTZ '2026-12-10 17:10:00+08', '检修完成');")
+rows = [
+    f"    ({hist_room}, {q(frm)}, {q(to)}, {by}, {ts(when)}, {q(reason)})"
+    for frm, to, by, when, reason in MANUAL_STATUS_LOG
+]
+w(",\n".join(rows) + ";")
 w()
 
 # --- room 状态更新（触发器产生日志）---
 w("-- ----------------------------------------------------------------------------")
-w("-- 11) 按业务流转更新房态（AFTER UPDATE 触发器自动写入 room_status_log）：")
-w("--     checked_in 的房间 → occupied；有 future 预订 → reserved；")
-w("--     空闲房里挑 2 间 cleaning、1 间 maintenance、1 间 disabled。")
+w("-- 12) 按 4 态流转更新房态（AFTER UPDATE 触发器自动写入 room_status_log）：")
+w(f"--     空闲房里挑 {len(cleaning_rooms)} 间 cleaning、1 间 maintenance、1 间 disabled，其余保持 available；")
+w("--     “已预订”“入住中”不再写进房态，由 reservation / check_in_record 推导。")
 w("-- ----------------------------------------------------------------------------")
 w("UPDATE room SET status = v.status, updated_at = now()")
 w("FROM (VALUES")
@@ -689,7 +835,7 @@ w()
 
 # --- 自检 ---
 w("-- ----------------------------------------------------------------------------")
-w("-- 12) 自检：条数、状态分布、重叠检测、可用房函数、视图")
+w("-- 13) 自检：条数、状态分布、重叠检测、逐日价格一致性、可售房函数、视图")
 w("-- ----------------------------------------------------------------------------")
 w("SELECT 'app_user'        AS table_name, count(*) AS rows FROM app_user")
 w("UNION ALL SELECT 'customer',        count(*) FROM customer")
@@ -697,6 +843,7 @@ w("UNION ALL SELECT 'room_type',       count(*) FROM room_type")
 w("UNION ALL SELECT 'room',            count(*) FROM room")
 w("UNION ALL SELECT 'rate_plan',       count(*) FROM rate_plan")
 w("UNION ALL SELECT 'reservation',     count(*) FROM reservation")
+w("UNION ALL SELECT 'room_block',      count(*) FROM room_block")
 w("UNION ALL SELECT 'check_in_record', count(*) FROM check_in_record")
 w("UNION ALL SELECT 'service_item',    count(*) FROM service_item")
 w("UNION ALL SELECT 'service_order',   count(*) FROM service_order")
@@ -708,6 +855,22 @@ w("SELECT status, count(*) AS cnt FROM reservation GROUP BY status ORDER BY stat
 w()
 w("SELECT status, count(*) AS cnt FROM room GROUP BY status ORDER BY status;")
 w()
+w("SELECT block_type, count(*) AS cnt, sum(end_date - start_date) AS blocked_room_nights")
+w("FROM room_block GROUP BY block_type ORDER BY block_type;")
+w()
+w("-- 逐日价格：触发器补的明细行数应等于总房晚数；逐日价之和应等于订单总额（期望 0 与相等）")
+w("SELECT count(*) AS reservation_price_rows FROM reservation_price;")
+w()
+w("SELECT sum(check_out_date - check_in_date) AS planned_room_nights FROM reservation;")
+w()
+w("SELECT count(*) AS mismatch")
+w("FROM reservation r")
+w("JOIN (SELECT reservation_id, sum(price) AS s FROM reservation_price GROUP BY 1) p")
+w("  ON p.reservation_id = r.id")
+w("WHERE r.total_amount <> p.s;")
+w()
+w("SELECT count(*) AS room_block_rows FROM room_block;")
+w()
 w("-- 重叠检测：活跃状态下同一房间区间相交的行数，期望 0")
 w("SELECT count(*) AS overlap_pairs")
 w("FROM reservation a")
@@ -716,19 +879,29 @@ w("WHERE a.status IN ('pending', 'confirmed', 'checked_in')")
 w("  AND b.status IN ('pending', 'confirmed', 'checked_in')")
 w("  AND a.during && b.during;")
 w()
+w("-- 跨表冲突检测：订单区间与维修/停用区间相交的行数，期望 0")
+w("SELECT count(*) AS blocked_overlap_pairs")
+w("FROM reservation r")
+w("JOIN room_block b ON b.room_id = r.room_id AND r.during && b.during;")
+w()
 w("-- 支付平衡：押金 + 房费尾款 - 退款 应等于（应收合计 - 未结部分），这里只看口径是否有异常行")
 w("SELECT p.kind, count(*) AS cnt, sum(p.amount) AS amount_sum")
 w("FROM payment p GROUP BY p.kind ORDER BY p.kind;")
 w()
-w("-- 可用房函数：演示 2026-12-20 至 2026-12-22 的可订房间数")
+w("-- 可用房函数：演示 2026-12-20 至 2026-12-22 的可订房间数（含 avg_price / total_price 列）")
 w("SELECT count(*) AS available_rooms_demo")
 w("FROM fn_available_rooms(DATE '2026-12-20', DATE '2026-12-22');")
+w()
+w("SELECT room_no, room_type_name, floor, base_price, avg_price, total_price")
+w("FROM fn_available_rooms(DATE '2026-12-20', DATE '2026-12-22')")
+w("ORDER BY floor, room_no")
+w("LIMIT 5;")
 w()
 w("-- 视图连通性")
 w("SELECT count(*) AS reservation_detail_rows FROM v_reservation_detail;")
 w("SELECT count(*) AS check_in_detail_rows FROM v_check_in_detail;")
 w()
-w(f"SELECT '03_seed.sql 执行完成：{len(reservations)} 条预订 / {len(checkins)} 条入住 / {len(payments)} 笔支付 / {order_count} 条服务明细' AS result;")
+w(f"SELECT '03_seed.sql 执行完成：{len(reservations)} 条预订 / {len(room_blocks)} 条不可售区间 / {len(checkins)} 条入住 / {len(payments)} 笔支付 / {order_count} 条服务明细' AS result;")
 w()
 w("COMMIT;")
 w()
@@ -740,10 +913,18 @@ if "--check" in sys.argv:
     print("[check] 预订:", len(reservations), "状态分布:", counts)
     print("[check] 入住:", len(checkins), "支付:", len(payments), kind_counts)
     print("[check] 房态:", status_cover)
+    print("[check] 不可售区间:", [(b["room_no"], b["block_type"], str(b["start"]), str(b["end"])) for b in room_blocks])
     raise SystemExit(0)
 
 OUT.write_text(text, encoding="utf-8", newline="\n")
 print(f"[ok] 已生成 {OUT.relative_to(ROOT)}（{len(text.splitlines())} 行，{len(text.encode('utf-8'))} 字节）")
 print(f"[ok] 预订 {len(reservations)} 条，状态 {counts}")
 print(f"[ok] 入住 {len(checkins)} 条，支付 {len(payments)} 条 {kind_counts}")
-print(f"[ok] 房态分布 {status_cover}")
+print(f"[ok] 房态分布 {status_cover}（4 态）")
+for b in room_blocks:
+    print(f"[ok] room_block: {b['room_no']} {b['block_type']:<11} {b['start']} ~ {b['end']}  {b['reason']}")
+if relaxed_specs:
+    print(f"[warn] 以下区间退化为“仅避让活跃订单”：{relaxed_specs}")
+print(f"[ok] room_status_log = {len(MANUAL_STATUS_LOG)} 手工 + {len(STATUS_CHANGE_ROOMS)} 触发器 = "
+      f"{len(MANUAL_STATUS_LOG) + len(STATUS_CHANGE_ROOMS)} 条")
+print("[ok] reservation_price 不在此插入，由 fn_sync_reservation_prices() 生成")

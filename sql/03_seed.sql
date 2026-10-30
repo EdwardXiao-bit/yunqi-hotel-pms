@@ -8,12 +8,16 @@
 --   app_user        27  （1 管理员 + 2 前台 + 24 客户账号，口令统一 Hotel@123）
 --   customer        30  （24 个关联账号 + 6 个线下散客）
 --   room_type       6   （标准间 / 高级大床房 / 豪华双床房 / 家庭房 / 行政套房 / 无障碍房）
---   room           40   （5–12 层，每层 5 间，六种房态全覆盖）
+--   room           40   （5–12 层，每层 5 间；4 态房态 36 available + 2 cleaning + 1 maintenance + 1 disabled）
+--   room_block      4   （3 段维修 + 1 段停用；与房态语义一致，可售房与入住率按它扣减）
 --   rate_plan      10   （国庆加价 ×5 房型 + 元旦加价 ×5 房型）
 --   reservation    96  （六种状态，含 B3 首尾相接、B4 取消后重订两组边界数据）
+--   reservation_price  不在此插入：由触发器 fn_sync_reservation_prices() 按 rate_plan/标准价
+--                      逐日生成，再由 fn_refresh_reservation_total() 汇总回 reservation.total_amount；
+--                      行数 = 全部预订的房晚数（末尾自检 SELECT 校验）
 --   check_in_record 48  （40 条已退房 + 8 条在住）
 --   payment        96  （48 押金 + 37 房费尾款 + 3 退款 + 8 在住服务费）
---   room_status_log    35（手工历史 7 + 触发器自动 28 条）
+--   room_status_log    11（手工历史 7 + 触发器自动 4 条）
 --   service_item    8 / service_order 57（增值服务，F07 结算与统计用）
 --
 -- 执行：
@@ -31,7 +35,7 @@ SET search_path TO public;
 BEGIN;
 
 -- 清空并按外键倒序重置自增（幂等）
-TRUNCATE TABLE service_order, service_item, payment, check_in_record,
+TRUNCATE TABLE reservation_price, room_block, service_order, service_item, payment, check_in_record,
                room_status_log, reservation, rate_plan, room,
                room_type, customer, app_user
     RESTART IDENTITY CASCADE;
@@ -130,7 +134,8 @@ INSERT INTO customer (user_id, name, phone, id_card, email, remark) VALUES
     (NULL, '董欣', '13800001330', '510230198707180300', NULL, '线下散客，前台代订');
 
 -- ----------------------------------------------------------------------------
--- 5) room 房间（先统一建成 available，再在文末按业务流转改房态以产生变更日志）
+-- 5) room 房间（先统一建成 available，第 12 节再把 4 间改成 cleaning/maintenance/disabled，
+--    由 AFTER UPDATE 触发器写入 room_status_log；房态只有 4 态，已预订/入住中不写进房态）
 -- ----------------------------------------------------------------------------
 INSERT INTO room (room_type_id, room_no, floor, orientation, status, remark) VALUES
     (1, '501', 5, 'east', 'available', NULL),
@@ -186,7 +191,7 @@ INSERT INTO reservation (reservation_no, customer_id, room_id, check_in_date,
     ('R20261109001', 11, 36, DATE '2026-11-09', DATE '2026-11-11', 1, 328.00, 656.00, 'checked_out', 'phone', NULL),
     ('R20261106002', 4, 18, DATE '2026-11-06', DATE '2026-11-09', 2, 388.00, 1164.00, 'checked_out', 'phone', NULL),
     ('R20261023003', 6, 10, DATE '2026-10-23', DATE '2026-10-25', 1, 288.00, 576.00, 'checked_out', 'online', NULL),
-    ('R20261007004', 30, 23, DATE '2026-10-07', DATE '2026-10-09', 2, 732.00, 1464.00, 'checked_out', 'walk_in', NULL),
+    ('R20261007004', 30, 23, DATE '2026-10-07', DATE '2026-10-09', 2, 610.00, 1220.00, 'checked_out', 'walk_in', NULL),
     ('R20261109005', 3, 21, DATE '2026-11-09', DATE '2026-11-13', 2, 488.00, 1952.00, 'checked_out', 'online', NULL),
     ('R20261014006', 6, 32, DATE '2026-10-14', DATE '2026-10-18', 1, 1288.00, 5152.00, 'checked_out', 'walk_in', NULL),
     ('R20261009007', 20, 36, DATE '2026-10-09', DATE '2026-10-13', 1, 328.00, 1312.00, 'checked_out', 'walk_in', NULL),
@@ -208,7 +213,7 @@ INSERT INTO reservation (reservation_no, customer_id, room_id, check_in_date,
     ('R20261008023', 16, 16, DATE '2026-10-08', DATE '2026-10-11', 2, 388.00, 1164.00, 'checked_out', 'walk_in', NULL),
     ('R20261123024', 4, 18, DATE '2026-11-23', DATE '2026-11-26', 1, 388.00, 1164.00, 'checked_out', 'online', NULL),
     ('R20261014025', 11, 34, DATE '2026-10-14', DATE '2026-10-15', 2, 1288.00, 1288.00, 'checked_out', 'walk_in', NULL),
-    ('R20261007026', 5, 31, DATE '2026-10-07', DATE '2026-10-09', 1, 1932.00, 3864.00, 'checked_out', 'phone', NULL),
+    ('R20261007026', 5, 31, DATE '2026-10-07', DATE '2026-10-09', 1, 1610.00, 3220.00, 'checked_out', 'phone', NULL),
     ('R20261003027', 2, 6, DATE '2026-10-03', DATE '2026-10-05', 1, 432.00, 864.00, 'checked_out', 'phone', NULL),
     ('R20260906028', 8, 20, DATE '2026-09-06', DATE '2026-09-09', 1, 388.00, 1164.00, 'checked_out', 'online', NULL),
     ('R20260918029', 4, 5, DATE '2026-09-18', DATE '2026-09-19', 1, 288.00, 288.00, 'checked_out', 'walk_in', NULL),
@@ -231,7 +236,7 @@ INSERT INTO reservation (reservation_no, customer_id, room_id, check_in_date,
     ('R20261128046', 23, 17, DATE '2026-11-28', DATE '2026-11-29', 1, 388.00, 388.00, 'cancelled', 'walk_in', NULL),
     ('R20261222047', 6, 3, DATE '2026-12-22', DATE '2026-12-23', 2, 288.00, 288.00, 'cancelled', 'phone', NULL),
     ('R20260910048', 15, 3, DATE '2026-09-10', DATE '2026-09-13', 2, 288.00, 864.00, 'cancelled', 'walk_in', NULL),
-    ('R20260930049', 14, 30, DATE '2026-09-30', DATE '2026-10-03', 2, 688.00, 2064.00, 'cancelled', 'walk_in', NULL),
+    ('R20260930049', 14, 30, DATE '2026-09-30', DATE '2026-10-03', 2, 917.33, 2752.00, 'cancelled', 'walk_in', NULL),
     ('R20261027050', 3, 6, DATE '2026-10-27', DATE '2026-10-30', 2, 288.00, 864.00, 'cancelled', 'walk_in', NULL),
     ('R20261010051', 9, 2, DATE '2026-10-10', DATE '2026-10-11', 2, 288.00, 288.00, 'cancelled', 'phone', NULL),
     ('R20261103052', 1, 4, DATE '2026-11-03', DATE '2026-11-04', 2, 288.00, 288.00, 'no_show', 'phone', NULL),
@@ -255,14 +260,14 @@ INSERT INTO reservation (reservation_no, customer_id, room_id, check_in_date,
     ('R20270103070', 5, 23, DATE '2027-01-03', DATE '2027-01-05', 1, 488.00, 976.00, 'pending', 'walk_in', NULL),
     ('R20261230071', 4, 15, DATE '2026-12-30', DATE '2027-01-02', 2, 543.20, 1629.60, 'pending', 'walk_in', NULL),
     ('R20261226072', 4, 3, DATE '2026-12-26', DATE '2026-12-29', 2, 288.00, 864.00, 'pending', 'phone', NULL),
-    ('R20261229073', 1, 26, DATE '2026-12-29', DATE '2026-12-31', 3, 688.00, 1376.00, 'pending', 'walk_in', NULL),
+    ('R20261229073', 1, 26, DATE '2026-12-29', DATE '2026-12-31', 3, 825.60, 1651.20, 'pending', 'walk_in', NULL),
     ('R20270106074', 12, 9, DATE '2027-01-06', DATE '2027-01-10', 2, 288.00, 1152.00, 'pending', 'online', NULL),
     ('R20270106075', 13, 6, DATE '2027-01-06', DATE '2027-01-09', 2, 288.00, 864.00, 'pending', 'walk_in', NULL),
     ('R20270103076', 2, 32, DATE '2027-01-03', DATE '2027-01-04', 2, 1288.00, 1288.00, 'pending', 'phone', NULL),
     ('R20261224077', 10, 15, DATE '2026-12-24', DATE '2026-12-25', 2, 388.00, 388.00, 'pending', 'online', NULL),
     ('R20270103078', 16, 19, DATE '2027-01-03', DATE '2027-01-07', 2, 388.00, 1552.00, 'pending', 'walk_in', NULL),
     ('R20261218079', 3, 9, DATE '2026-12-18', DATE '2026-12-19', 2, 288.00, 288.00, 'confirmed', 'online', NULL),
-    ('R20261229080', 13, 35, DATE '2026-12-29', DATE '2027-01-02', 2, 1288.00, 5152.00, 'confirmed', 'online', NULL),
+    ('R20261229080', 13, 35, DATE '2026-12-29', DATE '2027-01-02', 2, 1674.40, 6697.60, 'confirmed', 'online', NULL),
     ('R20270103081', 16, 11, DATE '2027-01-03', DATE '2027-01-05', 1, 388.00, 776.00, 'confirmed', 'walk_in', NULL),
     ('R20261223082', 16, 37, DATE '2026-12-23', DATE '2026-12-24', 2, 328.00, 328.00, 'confirmed', 'online', NULL),
     ('R20270115083', 5, 11, DATE '2027-01-15', DATE '2027-01-18', 2, 388.00, 1164.00, 'confirmed', 'phone', NULL),
@@ -272,7 +277,7 @@ INSERT INTO reservation (reservation_no, customer_id, room_id, check_in_date,
     ('R20270112087', 14, 27, DATE '2027-01-12', DATE '2027-01-16', 2, 688.00, 2752.00, 'confirmed', 'walk_in', NULL),
     ('R20270109088', 6, 34, DATE '2027-01-09', DATE '2027-01-10', 2, 1288.00, 1288.00, 'confirmed', 'walk_in', NULL),
     ('R20261219089', 10, 11, DATE '2026-12-19', DATE '2026-12-22', 2, 388.00, 1164.00, 'confirmed', 'phone', NULL),
-    ('R20270102090', 5, 27, DATE '2027-01-02', DATE '2027-01-04', 3, 963.20, 1926.40, 'confirmed', 'walk_in', NULL),
+    ('R20270102090', 5, 27, DATE '2027-01-02', DATE '2027-01-04', 3, 825.60, 1651.20, 'confirmed', 'walk_in', NULL),
     ('R20261227091', 23, 19, DATE '2026-12-27', DATE '2026-12-28', 2, 388.00, 388.00, 'confirmed', 'online', NULL),
     ('R20270109092', 17, 8, DATE '2027-01-09', DATE '2027-01-10', 1, 288.00, 288.00, 'confirmed', 'walk_in', NULL),
     ('R20261220093', 1, 1, DATE '2026-12-20', DATE '2026-12-22', 2, 288.00, 576.00, 'cancelled', 'online', 'B4 边界用例：客户取消后再下同区间订单'),
@@ -281,7 +286,25 @@ INSERT INTO reservation (reservation_no, customer_id, room_id, check_in_date,
     ('R20270107096', 6, 1, DATE '2027-01-07', DATE '2027-01-09', 1, 288.00, 576.00, 'pending', 'online', 'B3 边界用例：与上一段首尾相接，活跃态也不冲突');
 
 -- ----------------------------------------------------------------------------
--- 7) check_in_record 入住记录 48 条（40 已退房 + 8 在住，在住的 actual_checkout_at 为空）
+-- 7) room_block 不可售区间 4 条（维修/停用，可售房夜与入住率按它扣减）
+--    每条区间的房间都由生成器避开任意状态的订单挑出（与活跃订单相交会被
+--    fn_check_room_block_order() 以 23514 拒绝），所以本段放在 reservation 之后执行，
+--    让跨表冲突校验真正跑到 96 条订单上：
+--      501  maintenance 2026-09-10 ~ 2026-09-25  卫浴翻新（历史区间，已结束；用于扣减 9 月可售房夜）
+--      503  maintenance 2026-12-01 ~ 2026-12-20  空调机组检修，房间不可售（覆盖演示日 2026-12-15）
+--      502  disabled    2026-11-01 ~ 2027-06-30  楼层整体改造，房间长期停用
+--      505  maintenance 2026-12-18 ~ 2026-12-24  计划内空调保养：房间当前仍为正常状态，但该区间不可售（演示可用房查询按区间排除）
+--    房态与区间语义一致：覆盖演示日 2026-12-15 的两间分别是 maintenance / disabled，
+--    历史维修那间（已结束）恢复 available。
+-- ----------------------------------------------------------------------------
+INSERT INTO room_block (room_id, start_date, end_date, block_type, reason, created_by, created_at) VALUES
+    (1, DATE '2026-09-10', DATE '2026-09-25', 'maintenance', '卫浴翻新（历史区间，已结束；用于扣减 9 月可售房夜）', 1, TIMESTAMPTZ '2026-08-31 09:00:00+08'),
+    (3, DATE '2026-12-01', DATE '2026-12-20', 'maintenance', '空调机组检修，房间不可售（覆盖演示日 2026-12-15）', 1, TIMESTAMPTZ '2026-11-21 09:00:00+08'),
+    (2, DATE '2026-11-01', DATE '2027-06-30', 'disabled', '楼层整体改造，房间长期停用', 1, TIMESTAMPTZ '2026-10-22 09:00:00+08'),
+    (5, DATE '2026-12-18', DATE '2026-12-24', 'maintenance', '计划内空调保养：房间当前仍为正常状态，但该区间不可售（演示可用房查询按区间排除）', 1, TIMESTAMPTZ '2026-12-08 09:00:00+08');
+
+-- ----------------------------------------------------------------------------
+-- 8) check_in_record 入住记录 48 条（40 已退房 + 8 在住，在住的 actual_checkout_at 为空）
 -- ----------------------------------------------------------------------------
 INSERT INTO check_in_record (reservation_id, guest_name, guest_phone, guest_id_card,
                              check_in_at, actual_checkout_at, deposit_amount,
@@ -289,7 +312,7 @@ INSERT INTO check_in_record (reservation_id, guest_name, guest_phone, guest_id_c
     (1, '郭磊', '13800001211', '510111198512150111', TIMESTAMPTZ '2026-11-09 14:00:00+08', TIMESTAMPTZ '2026-11-11 12:00:00+08', 906.00, 656.00, 150.00, 806.00, NULL),
     (2, '刘洋', '13800001104', '510108199507040044', TIMESTAMPTZ '2026-11-06 14:00:00+08', TIMESTAMPTZ '2026-11-09 12:00:00+08', 200.00, 1164.00, 88.00, 1252.00, NULL),
     (3, '杨帆', '13800001106', '510110199901200066', TIMESTAMPTZ '2026-10-23 14:00:00+08', TIMESTAMPTZ '2026-10-25 12:00:00+08', 200.00, 576.00, 300.00, 876.00, NULL),
-    (4, '董欣', '13800001330', '510230198707180300', TIMESTAMPTZ '2026-10-07 14:00:00+08', TIMESTAMPTZ '2026-10-09 12:00:00+08', 200.00, 1464.00, 0.00, 1464.00, NULL),
+    (4, '董欣', '13800001330', '510230198707180300', TIMESTAMPTZ '2026-10-07 14:00:00+08', TIMESTAMPTZ '2026-10-09 12:00:00+08', 200.00, 1220.00, 0.00, 1220.00, NULL),
     (5, '王芳', '13800001103', '510107198811230033', TIMESTAMPTZ '2026-11-09 14:00:00+08', TIMESTAMPTZ '2026-11-13 12:00:00+08', 200.00, 1952.00, 188.00, 2140.00, NULL),
     (6, '杨帆', '13800001106', '510110199901200066', TIMESTAMPTZ '2026-10-14 14:00:00+08', TIMESTAMPTZ '2026-10-18 12:00:00+08', 200.00, 5152.00, 120.00, 5272.00, NULL),
     (7, '唐浩', '13800001220', '510120198509150200', TIMESTAMPTZ '2026-10-09 14:00:00+08', TIMESTAMPTZ '2026-10-13 12:00:00+08', 200.00, 1312.00, 108.00, 1420.00, NULL),
@@ -311,7 +334,7 @@ INSERT INTO check_in_record (reservation_id, guest_name, guest_phone, guest_id_c
     (23, '郑艳', '13800001216', '510116198505150166', TIMESTAMPTZ '2026-10-08 14:00:00+08', TIMESTAMPTZ '2026-10-11 12:00:00+08', 200.00, 1164.00, 276.00, 1440.00, NULL),
     (24, '刘洋', '13800001104', '510108199507040044', TIMESTAMPTZ '2026-11-23 14:00:00+08', TIMESTAMPTZ '2026-11-26 12:00:00+08', 200.00, 1164.00, 0.00, 1164.00, NULL),
     (25, '郭磊', '13800001211', '510111198512150111', TIMESTAMPTZ '2026-10-14 14:00:00+08', TIMESTAMPTZ '2026-10-15 12:00:00+08', 200.00, 1288.00, 240.00, 1528.00, NULL),
-    (26, '陈静', '13800001105', '510109199310150055', TIMESTAMPTZ '2026-10-07 14:00:00+08', TIMESTAMPTZ '2026-10-09 12:00:00+08', 200.00, 3864.00, 150.00, 4014.00, NULL),
+    (26, '陈静', '13800001105', '510109199310150055', TIMESTAMPTZ '2026-10-07 14:00:00+08', TIMESTAMPTZ '2026-10-09 12:00:00+08', 200.00, 3220.00, 150.00, 3370.00, NULL),
     (27, '李娜', '13800001102', '510104199205120022', TIMESTAMPTZ '2026-10-03 14:00:00+08', TIMESTAMPTZ '2026-10-05 12:00:00+08', 200.00, 864.00, 60.00, 924.00, NULL),
     (28, '马静', '13800001208', '510108198509150088', TIMESTAMPTZ '2026-09-06 14:00:00+08', TIMESTAMPTZ '2026-09-09 12:00:00+08', 200.00, 1164.00, 0.00, 1164.00, NULL),
     (29, '刘洋', '13800001104', '510108199507040044', TIMESTAMPTZ '2026-09-18 14:00:00+08', TIMESTAMPTZ '2026-09-19 12:00:00+08', 200.00, 288.00, 312.00, 600.00, NULL),
@@ -336,7 +359,7 @@ INSERT INTO check_in_record (reservation_id, guest_name, guest_phone, guest_id_c
     (65, '张伟', '13800001101', '510101199003070011', TIMESTAMPTZ '2026-12-14 14:00:00+08', NULL, 200.00, 1552.00, 128.00, 1680.00, '在店，尚未退房');
 
 -- ----------------------------------------------------------------------------
--- 8) service_item 增值服务项目 + service_order 消费明细
+-- 9) service_item 增值服务项目 + service_order 消费明细
 -- ----------------------------------------------------------------------------
 INSERT INTO service_item (code, name, unit, price) VALUES
     ('BF', '自助早餐', '份', 68.00),
@@ -409,7 +432,7 @@ INSERT INTO service_order (check_in_record_id, service_item_id, quantity, unit_p
     (48, 6, 1, 128.00, TIMESTAMPTZ '2026-12-14 16:00:00+08');
 
 -- ----------------------------------------------------------------------------
--- 9) payment 支付流水 96 笔（kind=refund 的金额也记正数，靠 kind 区分方向）
+-- 10) payment 支付流水 96 笔（kind=refund 的金额也记正数，靠 kind 区分方向）
 -- ----------------------------------------------------------------------------
 INSERT INTO payment (payment_no, check_in_record_id, kind, method, amount, paid_at,
                      operator_user_id, remark) VALUES
@@ -420,7 +443,7 @@ INSERT INTO payment (payment_no, check_in_record_id, kind, method, amount, paid_
     ('P20261023005', 3, 'deposit', 'card', 200.00, TIMESTAMPTZ '2026-10-23 14:30:00+08', 2, NULL),
     ('P20261025006', 3, 'room_fee', 'card', 676.00, TIMESTAMPTZ '2026-10-25 12:00:00+08', 2, NULL),
     ('P20261007007', 4, 'deposit', 'card', 200.00, TIMESTAMPTZ '2026-10-07 14:30:00+08', 3, NULL),
-    ('P20261009008', 4, 'room_fee', 'card', 1264.00, TIMESTAMPTZ '2026-10-09 12:00:00+08', 3, NULL),
+    ('P20261009008', 4, 'room_fee', 'card', 1020.00, TIMESTAMPTZ '2026-10-09 12:00:00+08', 3, NULL),
     ('P20261109009', 5, 'deposit', 'wechat', 200.00, TIMESTAMPTZ '2026-11-09 14:30:00+08', 2, NULL),
     ('P20261113010', 5, 'room_fee', 'wechat', 1940.00, TIMESTAMPTZ '2026-11-13 12:00:00+08', 2, NULL),
     ('P20261014011', 6, 'deposit', 'wechat', 200.00, TIMESTAMPTZ '2026-10-14 14:30:00+08', 3, NULL),
@@ -464,7 +487,7 @@ INSERT INTO payment (payment_no, check_in_record_id, kind, method, amount, paid_
     ('P20261014049', 25, 'deposit', 'alipay', 200.00, TIMESTAMPTZ '2026-10-14 14:30:00+08', 2, NULL),
     ('P20261015050', 25, 'room_fee', 'alipay', 1328.00, TIMESTAMPTZ '2026-10-15 12:00:00+08', 2, NULL),
     ('P20261007051', 26, 'deposit', 'card', 200.00, TIMESTAMPTZ '2026-10-07 14:30:00+08', 3, NULL),
-    ('P20261009052', 26, 'room_fee', 'card', 3814.00, TIMESTAMPTZ '2026-10-09 12:00:00+08', 3, NULL),
+    ('P20261009052', 26, 'room_fee', 'card', 3170.00, TIMESTAMPTZ '2026-10-09 12:00:00+08', 3, NULL),
     ('P20261003053', 27, 'deposit', 'alipay', 200.00, TIMESTAMPTZ '2026-10-03 14:30:00+08', 2, NULL),
     ('P20261005054', 27, 'room_fee', 'alipay', 724.00, TIMESTAMPTZ '2026-10-05 12:00:00+08', 2, NULL),
     ('P20260906055', 28, 'deposit', 'wechat', 200.00, TIMESTAMPTZ '2026-09-06 14:30:00+08', 3, NULL),
@@ -511,52 +534,29 @@ INSERT INTO payment (payment_no, check_in_record_id, kind, method, amount, paid_
     ('P20261215096', 48, 'service_fee', 'wechat', 128.00, TIMESTAMPTZ '2026-12-15 10:00:00+08', 3, '在住期间增值服务费');
 
 -- ----------------------------------------------------------------------------
--- 10) room_status_log 手工历史（触发器会自动记录房态变更，这里补几段典型轨迹）
+-- 11) room_status_log 手工历史 7 条（4 态轨迹：可用 ↔ 清扫 / 维修 / 停用，
+--     用于展示 state 流转；第 12 节的房态变更由触发器自动追加，不在此手写）
 -- ----------------------------------------------------------------------------
 INSERT INTO room_status_log (room_id, from_status, to_status, changed_by, changed_at, reason) VALUES
     (16, NULL, 'available', 2, TIMESTAMPTZ '2026-11-01 09:00:00+08', '房间交付，初始化为可用'),
-    (16, 'available', 'reserved', 2, TIMESTAMPTZ '2026-11-05 10:20:00+08', '客人电话预订'),
-    (16, 'reserved', 'occupied', 2, TIMESTAMPTZ '2026-12-02 14:05:00+08', '办理入住'),
-    (16, 'occupied', 'cleaning', 3, TIMESTAMPTZ '2026-12-05 12:15:00+08', '退房后转清扫'),
-    (16, 'cleaning', 'available', 3, TIMESTAMPTZ '2026-12-05 15:40:00+08', '清扫完成，恢复可用'),
-    (16, 'available', 'maintenance', 2, TIMESTAMPTZ '2026-12-10 08:30:00+08', '空调检修'),
-    (16, 'maintenance', 'available', 2, TIMESTAMPTZ '2026-12-10 17:10:00+08', '检修完成');
+    (16, 'available', 'cleaning', 3, TIMESTAMPTZ '2026-11-05 10:20:00+08', '退房后转清扫'),
+    (16, 'cleaning', 'available', 3, TIMESTAMPTZ '2026-11-05 15:40:00+08', '清扫完成，恢复可用'),
+    (16, 'available', 'maintenance', 2, TIMESTAMPTZ '2026-11-20 08:30:00+08', '空调检修'),
+    (16, 'maintenance', 'available', 2, TIMESTAMPTZ '2026-11-20 17:10:00+08', '检修完成，恢复可用'),
+    (16, 'available', 'disabled', 2, TIMESTAMPTZ '2026-11-25 09:00:00+08', '整房深度翻新，暂停使用'),
+    (16, 'disabled', 'available', 2, TIMESTAMPTZ '2026-11-30 18:00:00+08', '翻新完成，恢复可用');
 
 -- ----------------------------------------------------------------------------
--- 11) 按业务流转更新房态（AFTER UPDATE 触发器自动写入 room_status_log）：
---     checked_in 的房间 → occupied；有 future 预订 → reserved；
---     空闲房里挑 2 间 cleaning、1 间 maintenance、1 间 disabled。
+-- 12) 按 4 态流转更新房态（AFTER UPDATE 触发器自动写入 room_status_log）：
+--     空闲房里挑 2 间 cleaning、1 间 maintenance、1 间 disabled，其余保持 available；
+--     “已预订”“入住中”不再写进房态，由 reservation / check_in_record 推导。
 -- ----------------------------------------------------------------------------
 UPDATE room SET status = v.status, updated_at = now()
 FROM (VALUES
-    (1, 'occupied'),
-    (3, 'reserved'),
-    (4, 'reserved'),
-    (5, 'reserved'),
-    (6, 'reserved'),
-    (7, 'occupied'),
-    (8, 'reserved'),
-    (9, 'reserved'),
-    (10, 'cleaning'),
-    (11, 'reserved'),
-    (12, 'occupied'),
-    (13, 'occupied'),
-    (14, 'occupied'),
-    (15, 'occupied'),
-    (19, 'reserved'),
-    (20, 'reserved'),
-    (21, 'reserved'),
-    (23, 'reserved'),
-    (24, 'occupied'),
-    (26, 'reserved'),
-    (27, 'occupied'),
-    (31, 'cleaning'),
-    (32, 'reserved'),
-    (34, 'reserved'),
-    (35, 'reserved'),
-    (36, 'maintenance'),
-    (37, 'reserved'),
-    (38, 'disabled')
+    (2, 'disabled'),
+    (3, 'maintenance'),
+    (4, 'cleaning'),
+    (6, 'cleaning')
 ) AS v(id, status)
 WHERE room.id = v.id;
 
@@ -564,7 +564,7 @@ WHERE room.id = v.id;
 ANALYZE;
 
 -- ----------------------------------------------------------------------------
--- 12) 自检：条数、状态分布、重叠检测、可用房函数、视图
+-- 13) 自检：条数、状态分布、重叠检测、逐日价格一致性、可售房函数、视图
 -- ----------------------------------------------------------------------------
 SELECT 'app_user'        AS table_name, count(*) AS rows FROM app_user
 UNION ALL SELECT 'customer',        count(*) FROM customer
@@ -572,6 +572,7 @@ UNION ALL SELECT 'room_type',       count(*) FROM room_type
 UNION ALL SELECT 'room',            count(*) FROM room
 UNION ALL SELECT 'rate_plan',       count(*) FROM rate_plan
 UNION ALL SELECT 'reservation',     count(*) FROM reservation
+UNION ALL SELECT 'room_block',      count(*) FROM room_block
 UNION ALL SELECT 'check_in_record', count(*) FROM check_in_record
 UNION ALL SELECT 'service_item',    count(*) FROM service_item
 UNION ALL SELECT 'service_order',   count(*) FROM service_order
@@ -583,6 +584,22 @@ SELECT status, count(*) AS cnt FROM reservation GROUP BY status ORDER BY status;
 
 SELECT status, count(*) AS cnt FROM room GROUP BY status ORDER BY status;
 
+SELECT block_type, count(*) AS cnt, sum(end_date - start_date) AS blocked_room_nights
+FROM room_block GROUP BY block_type ORDER BY block_type;
+
+-- 逐日价格：触发器补的明细行数应等于总房晚数；逐日价之和应等于订单总额（期望 0 与相等）
+SELECT count(*) AS reservation_price_rows FROM reservation_price;
+
+SELECT sum(check_out_date - check_in_date) AS planned_room_nights FROM reservation;
+
+SELECT count(*) AS mismatch
+FROM reservation r
+JOIN (SELECT reservation_id, sum(price) AS s FROM reservation_price GROUP BY 1) p
+  ON p.reservation_id = r.id
+WHERE r.total_amount <> p.s;
+
+SELECT count(*) AS room_block_rows FROM room_block;
+
 -- 重叠检测：活跃状态下同一房间区间相交的行数，期望 0
 SELECT count(*) AS overlap_pairs
 FROM reservation a
@@ -591,19 +608,29 @@ WHERE a.status IN ('pending', 'confirmed', 'checked_in')
   AND b.status IN ('pending', 'confirmed', 'checked_in')
   AND a.during && b.during;
 
+-- 跨表冲突检测：订单区间与维修/停用区间相交的行数，期望 0
+SELECT count(*) AS blocked_overlap_pairs
+FROM reservation r
+JOIN room_block b ON b.room_id = r.room_id AND r.during && b.during;
+
 -- 支付平衡：押金 + 房费尾款 - 退款 应等于（应收合计 - 未结部分），这里只看口径是否有异常行
 SELECT p.kind, count(*) AS cnt, sum(p.amount) AS amount_sum
 FROM payment p GROUP BY p.kind ORDER BY p.kind;
 
--- 可用房函数：演示 2026-12-20 至 2026-12-22 的可订房间数
+-- 可用房函数：演示 2026-12-20 至 2026-12-22 的可订房间数（含 avg_price / total_price 列）
 SELECT count(*) AS available_rooms_demo
 FROM fn_available_rooms(DATE '2026-12-20', DATE '2026-12-22');
+
+SELECT room_no, room_type_name, floor, base_price, avg_price, total_price
+FROM fn_available_rooms(DATE '2026-12-20', DATE '2026-12-22')
+ORDER BY floor, room_no
+LIMIT 5;
 
 -- 视图连通性
 SELECT count(*) AS reservation_detail_rows FROM v_reservation_detail;
 SELECT count(*) AS check_in_detail_rows FROM v_check_in_detail;
 
-SELECT '03_seed.sql 执行完成：96 条预订 / 48 条入住 / 96 笔支付 / 57 条服务明细' AS result;
+SELECT '03_seed.sql 执行完成：96 条预订 / 4 条不可售区间 / 48 条入住 / 96 笔支付 / 57 条服务明细' AS result;
 
 COMMIT;
 
