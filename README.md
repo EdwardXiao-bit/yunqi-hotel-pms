@@ -31,7 +31,7 @@
 
 | 层次 | 选型 | 说明 |
 | --- | --- | --- |
-| 数据库 | **PostgreSQL 18** | `daterange` 类型 + GiST 排他约束；库名 `hotel_db`，UTF-8，Asia/Shanghai |
+| 数据库 | **PostgreSQL 18** | `daterange` 类型 + GiST 排他约束；库名 `yunqi_hotel`，UTF-8，Asia/Shanghai |
 | 后端 | **Django 6.1**（Python 3.12.7） | 服务端模板渲染，单进程 `runserver`，不拆前后端 |
 | 前端 | **AdminLTE 3.2 + Bootstrap 4.6** | 本地静态文件（不用 CDN），统计图表用 ECharts |
 | 驱动 | psycopg2 2.9.13 | Django 原生 PostgreSQL 后端 |
@@ -99,7 +99,7 @@ ALTER TABLE reservation
 ## 6 目录结构
 
 ```
-database-course-project/
+yunqi-hotel-pms/
 ├─ docs/                        课程文档与设计文档
 │  ├─ 00-作业要求与格式要点.md   课程要求事实提取
 │  ├─ 方案对比-六方案评估.md     选题决策依据（6 方案加权打分）

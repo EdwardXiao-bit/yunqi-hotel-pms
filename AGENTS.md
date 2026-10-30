@@ -1,7 +1,7 @@
 # 数据库系统原理课程设计 · 14 组
 
 > 项目根 `AGENTS.md`：给 AI 助手与组员共用的项目约定。**当前状态：选题、功能清单、技术栈均已定案；第一次提交件（xlsx + 截图 + Word）已产出待上传；表结构与页面待阶段 1–4 回填。**
-> 最后更新：2026-10-30（提交件改按课程要求的“第x组_给定方案名称”命名）
+> 最后更新：2026-10-30（仓库/目录改名 yunqi-hotel-pms，数据库名改 yunqi_hotel）
 
 ## 1 项目事实（已确认）
 
@@ -14,8 +14,9 @@
 - 运行时（本机实测）：Python 3.12.7（`D:\anaconda3\python.exe`）、Django 6.1.2、psycopg2 2.9.13、PostgreSQL 18（服务 `postgresql-x64-18` 运行中）
 - 项目名称（题目）：**云栖酒店客房预订与入住管理系统**（2026-10-29 定名；对应教师给定方案六原题名“酒店客房预订与入住管理系统”）
 - 交付件命名：**`第14组_酒店客房预订与入住管理系统`**（课程要求“第x组_给定方案名称”，文件名用方案名、正文标题用自定项目名）
+- 仓库与本地目录名：**`yunqi-hotel-pms`**（2026-10-30 由 `database-course-project` 改名；远端 <https://github.com/EdwardXiao-bit/yunqi-hotel-pms>）
 - 选题（已定案）：给定方案六，决策过程见 `docs/方案对比-六方案评估.md`、`docs/自定选题候选.md`
-- 数据库：PostgreSQL 18，库名 `hotel_db`，端口 `5432`，编码 UTF8，时区 Asia/Shanghai
+- 数据库：PostgreSQL 18，库名 `yunqi_hotel`，端口 `5432`，编码 UTF8，时区 Asia/Shanghai
 - 角色：客户（customer）、前台工作人员（receptionist）、管理员（admin）
 
 ## 2 硬节点
@@ -29,7 +30,7 @@
 ## 3 目录约定
 
 ```
-database-course-project/
+yunqi-hotel-pms/
 ├─ AGENTS.md                    本项目约定（本文件）
 ├─ docs/                        交付文档与设计文档
 │  ├─ 00-作业要求与格式要点.md   课程要求事实提取（已建）
@@ -118,7 +119,7 @@ database-course-project/
 - [x] 技术栈：PostgreSQL 18 + Django 6.1 + AdminLTE 3.2（服务端模板渲染，单进程 8000）
 - [x] 区间排他约束落地方式：生成列 `during` + `EXCLUDE USING gist`（见 §4.1）
 - [x] 排期与分工 → `docs/03-实施计划.md`
-- [x] 远端仓库：`https://github.com/EdwardXiao-bit/database-course-project`（main 已推送 README / 文档 / 交付件）
+- [x] 远端仓库：`https://github.com/EdwardXiao-bit/yunqi-hotel-pms`（main 已推送 README / 文档 / 交付件）
 - [x] 仓库清理（2026-10-30）：截图改名 `deliverables/images/feature-list.png`（ASCII，避免非中文环境编码问题），删除早期 Word COM 实验脚本 `tools/convert_doc.ps1`，清掉旧项目名的过期交付件
 
 ### 仍需确认
