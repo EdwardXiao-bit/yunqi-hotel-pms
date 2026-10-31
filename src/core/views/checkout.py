@@ -233,7 +233,7 @@ def _submit_checkout(request, record: CheckInRecord):
             request,
             record,
             checkout_at=record.actual_checkout_at,
-            error=f"该入住记录已于 {stamp} 办过退房，不能重复结算。",
+            error=f"该订单已结算（{stamp} 已办理退房），不能重复结算。",
             posted=_posted_snapshot(form),
         )
     checkout_at = _parse_datetime(form.get("actual_checkout_at")) or timezone.now()

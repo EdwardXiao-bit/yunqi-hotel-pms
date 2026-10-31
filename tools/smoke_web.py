@@ -313,7 +313,7 @@ def main() -> int:
         check("逐日成交价格" in detail_body and "当日晚价" in detail_body, "订单详情渲染逐日成交价格表")
         check("取消预订" in detail_body, "待确认订单详情显示“取消预订”按钮")
 
-        # 同一房间同一区间重复下单 → 被可用房预检查拦下（真库上则由 23P01 兜底）
+        # 同一房间同一区间重复下单 → 预检查判定为「同客户重复提交」（E03，真库上则由 23P01 兜底）
         duplicate = customer_client.post(
             "/reservations/new/",
             {
@@ -326,9 +326,11 @@ def main() -> int:
                 "remark": "",
             },
         )
+        duplicate_text = duplicate.content.decode("utf-8")
         check(
-            duplicate.status_code == 200 and "不可预订" in duplicate.content.decode("utf-8"),
-            "同房间同区间重复下单被拒绝并给中文提示",
+            duplicate.status_code == 200
+            and ("请勿重复提交" in duplicate_text or "不可预订" in duplicate_text),
+            "同房间同区间重复下单被拒绝并提示「请勿重复提交」（E03）",
             str(duplicate.status_code),
         )
 
@@ -522,6 +524,15 @@ def main() -> int:
         check("已经办理过入住" in again, "同一预订重复办理入住被拦截并给中文提示")
         cust_detail = customer_client.get(checkin_url).content.decode("utf-8")
         check("入住中" in cust_detail, "客户订单详情反映“入住中”状态")
+
+        # E05：已入住订单不可取消（客户侧直接 POST 也要被状态机拦下）
+        e05 = customer_client.post(f"/my/reservations/{checkin_id}/cancel/", follow=True)
+        e05_text = e05.content.decode("utf-8")
+        check(
+            "已入住订单不可取消" in e05_text,
+            "E05 已入住订单取消被拒并提示走退房结算",
+            str(e05.status_code),
+        )
 
         walkin_room = next(
             (room_pk for room_pk, room_no in walkin_rooms if room_no == "803"),

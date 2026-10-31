@@ -38,6 +38,7 @@ from ..models import (
     Reservation,
     ReservationPrice,
     Room,
+    RoomBlock,
     RoomType,
 )
 from ..roles import ROLE_CUSTOMER, ROLE_RECEPTIONIST
@@ -155,9 +156,7 @@ def _create_from_post(request, customer):
         # 预检查（并发下的最终保证是 ex_reservation_room_overlap）
         available_ids = {row["room_id"] for row in _query_available(check_in, check_out, None, None)}
         if room.pk not in available_ids:
-            errors.append(
-                "该房间在所选日期不可预订（可能已被预订，或处于维修/停用区间）。请重新查询可用房或调整日期。"
-            )
+            errors.append(_unavailable_reason(customer, room, check_in, check_out))
 
     if errors:
         return _render_create_form(request, customer, data=data, errors=errors)
@@ -193,6 +192,40 @@ def _create_from_post(request, customer):
         f"金额 {total:.2f} 元），等待前台确认。",
     )
     return redirect("core:my_reservation_detail", pk=reservation.pk)
+
+
+def _unavailable_reason(customer: Customer, room: Room, check_in: date, check_out: date) -> str:
+    """区分 E02 / E03 / E04：同客户重复提交、房间已被预订、房间在维修停用区间。"""
+    overlapping = Reservation.objects.filter(
+        room=room,
+        status__in=ACTIVE_STATUSES,
+        check_in_date__lt=check_out,
+        check_out_date__gt=check_in,
+    ).select_related("customer")
+    duplicate = overlapping.filter(customer=customer).first()
+    if duplicate is not None:
+        return (
+            f"您已提交过该房间同时段的预订（{duplicate.reservation_no}："
+            f"{duplicate.check_in_date} 至 {duplicate.check_out_date}），请勿重复提交。"
+        )
+    taken = overlapping.first()
+    if taken is not None:
+        return (
+            f"该房间在 {check_in} 至 {check_out} 已被预订"
+            f"（{taken.reservation_no}），请另选房间或调整日期。"
+        )
+    block = (
+        RoomBlock.objects.filter(room=room, start_date__lt=check_out, end_date__gt=check_in)
+        .order_by("start_date")
+        .first()
+    )
+    if block is not None:
+        label = "维修中" if block.block_type == "maintenance" else "停用中"
+        return (
+            f"该房间在 {block.start_date} 至 {block.end_date} "
+            f"{label}，不可预订；请另选房间或调整日期。"
+        )
+    return "该房间在所选日期不可预订（可能已被预订，或处于维修/停用区间）。请重新查询可用房或调整日期。"
 
 
 def _validate_booking(data: dict, customer: Customer) -> list[str]:
@@ -544,10 +577,14 @@ def _confirm_reservation(reservation: Reservation) -> None:
 
 
 def _cancel_reservation(reservation: Reservation, *, actor) -> None:
+    if reservation.status == "checked_in":
+        raise ValueError(
+            f"已入住订单不可取消，请办理退房结算（预订 {reservation.reservation_no}）。"
+        )
     if reservation.status not in CANCELLABLE_STATUSES:
         raise ValueError(
             f"只有“待确认 / 已确认”的预订可以取消，当前状态为“{STATUS_LABELS.get(reservation.status)}”；"
-            "已入住订单请走退房结算，已退房/已取消订单无需再取消。"
+            "已退房/已取消订单无需再取消。"
         )
     if reservation.status == "confirmed" and reservation.check_in_date < timezone.localdate():
         raise ValueError("该预订的入住日期已过，请用“未到店”处理，不要取消。")
