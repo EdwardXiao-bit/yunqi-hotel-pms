@@ -13,12 +13,12 @@
   --yunqi-num-font: "Segoe UI", "Microsoft YaHei", Consolas, "Cascadia Mono", monospace;
 
   /* 地面 / 表面 / 线 */
-  --yq-ground: #f6f7f9;
+  --yq-ground: #eaeff1;
   --yq-surface: #ffffff;
-  --yq-raised: #fafbfc;
-  --yq-active: #eceff2;
-  --yq-line: #e4e7ea;      /* 1px 卡片/面板描边 */
-  --yq-rule: #eff1f3;      /* 表格行线 */
+  --yq-raised: #f4f7f8;
+  --yq-active: #d9e6ea;
+  --yq-line: #d8e0e4;      /* 1px 卡片/面板描边 */
+  --yq-rule: #e8edef;      /* 表格行线 */
 
   /* 墨色阶 */
   --yq-ink: #171b1f;
@@ -30,6 +30,9 @@
   --yq-primary: #17414f;
   --yq-primary-ink: #ffffff;
   --yq-accent: #1f6f8b;
+  --yq-gold: #b8894a;
+  --yq-inkbar: #123642;
+  --yq-side: #f2f5f6;
 
   /* 语义色：浅底 + 同色深字 */
   --yq-ok: #24734d;      --yq-ok-bg: #e3f4ea;
@@ -200,7 +203,6 @@ a:hover { color: var(--yq-primary); }
   margin-bottom: 0;
 }
 
-.small-box .icon,
 .small-box .small-box-footer { display: none !important; }
 
 /* ── 卡片：1px 细边、无静置阴影、彩色描边归一 ──────────────────────── */
@@ -478,4 +480,202 @@ code {
   border-color: var(--yq-faint) !important;
   color: var(--yq-ink) !important;
   background: var(--yq-raised) !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+ * v2（2026-10-31 二轮）：分区层次 + 墨色顶栏 + 侧栏悬停对比修复
+ *                     + KPI 剪影图标（带悬停动效）+ 入场/交互动效
+ * 起因：一轮后大面积白、层次不足；侧栏悬停时 AdminLTE 的
+ *       .sidebar-dark-primary 规则把文字刷成白色，压在浅底上不可见。
+ * ════════════════════════════════════════════════════════════════════ */
+
+/* ── 顶栏：墨色锚点（与登录页同一色族），把页面切成「墨顶 / 浅侧 / 灰地」三层 ── */
+.main-header.navbar,
+.main-header.navbar.navbar-white,
+.main-header.navbar.navbar-light {
+  background: var(--yq-inkbar) !important;
+  border-bottom: 1px solid #0c2831 !important;
+  box-shadow: none !important;
+}
+
+.main-header.navbar .nav-link,
+.main-header.navbar .nav-link i,
+.main-header.navbar .text-dark,
+.main-header.navbar .text-muted,
+.main-header.navbar .navbar-nav > .nav-item > span {
+  color: rgba(255, 255, 255, 0.84) !important;
+}
+
+.main-header.navbar .nav-link:hover,
+.main-header.navbar .nav-link:focus,
+.main-header.navbar .nav-link:hover i {
+  color: #ffffff !important;
+}
+
+.main-header.navbar .badge-info {
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: #ffffff !important;
+  font-weight: 500;
+}
+
+.main-header.navbar .dropdown-menu { border-color: var(--yq-line); box-shadow: 0 10px 26px -18px rgba(9, 34, 42, 0.6); }
+.main-header.navbar .dropdown-menu .nav-link,
+.main-header.navbar .dropdown-menu .text-muted,
+.main-header.navbar .dropdown-item-text { color: var(--yq-muted) !important; }
+.main-header.navbar .dropdown-menu .nav-link:hover { color: var(--yq-ink) !important; }
+
+/* ── 侧栏：略深于内容的浅面 + 悬停/激活对比（修复白字压浅底） ── */
+.main-sidebar.sidebar-dark-primary {
+  background-color: var(--yq-side) !important;
+  border-right: 1px solid var(--yq-line);
+}
+
+.main-sidebar .brand-link {
+  background: transparent !important;
+  border-bottom: 1px solid var(--yq-line) !important;
+}
+.main-sidebar .brand-link .brand-text { color: var(--yq-ink) !important; }
+.main-sidebar .brand-link i { color: var(--yq-primary) !important; }
+
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link,
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link p,
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link i {
+  color: var(--yq-ink-soft) !important;
+}
+
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link:hover,
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link:focus {
+  background-color: #dfe8ea !important;
+  color: var(--yq-ink) !important;
+}
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link:hover p,
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link:focus p,
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link:hover i,
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link:focus i {
+  color: var(--yq-ink) !important;
+}
+
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link.active {
+  background: var(--yq-active) !important;
+  box-shadow: inset 3px 0 0 var(--yq-primary) !important;
+}
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link.active p,
+.sidebar-dark-primary .nav-sidebar > .nav-item > .nav-link.active i {
+  color: var(--yq-ink) !important;
+}
+
+.main-sidebar .nav-sidebar .btn-link { color: var(--yq-ink-soft) !important; }
+.main-sidebar .nav-sidebar .btn-link:hover { color: var(--yq-danger) !important; }
+
+/* ── 内容页头：金色短竖条 + 呼吸留白 ── */
+.content-header h1::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 14px;
+  margin-right: 9px;
+  vertical-align: -1px;
+  border-radius: 2px;
+  background: var(--yq-gold);
+}
+
+/* ── KPI：恢复 AdminLTE 的右上剪影图标，做成同色系淡水印 + 悬停位移 ── */
+.small-box {
+  position: relative;
+  overflow: hidden;
+  transition: border-color 180ms ease-out, box-shadow 180ms ease-out;
+}
+.small-box .inner { position: relative; z-index: 1; }
+.small-box .icon {
+  display: block !important;
+  position: absolute;
+  top: 4px;
+  right: 14px;
+  color: rgba(23, 65, 79, 0.10);
+  font-size: 52px;
+  line-height: 1;
+  transition: transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1), color 260ms ease-out;
+}
+.small-box .icon > i { font-size: inherit; }
+.small-box:hover .icon {
+  transform: translateY(-3px) scale(1.05);
+  color: rgba(23, 65, 79, 0.18);
+}
+.small-box.bg-success .icon { color: rgba(36, 115, 77, 0.12); }
+.small-box.bg-success:hover .icon { color: rgba(36, 115, 77, 0.22); }
+.small-box.bg-warning .icon { color: rgba(138, 90, 18, 0.12); }
+.small-box.bg-warning:hover .icon { color: rgba(138, 90, 18, 0.22); }
+.small-box.bg-danger .icon { color: rgba(163, 36, 42, 0.11); }
+.small-box.bg-danger:hover .icon { color: rgba(163, 36, 42, 0.20); }
+.small-box.bg-info .icon { color: rgba(29, 85, 112, 0.12); }
+.small-box.bg-info:hover .icon { color: rgba(29, 85, 112, 0.22); }
+.small-box:hover { border-color: #c9d5da; box-shadow: 0 3px 12px -8px rgba(16, 49, 63, 0.55); }
+
+/* ── 卡片：表头浅面、悬停微浮；表格行悬停与数字稳位 ── */
+.card-header {
+  background-color: var(--yq-raised) !important;
+  border-bottom: 1px solid var(--yq-line) !important;
+}
+.card:hover { border-color: #ccd8dc; box-shadow: 0 3px 14px -10px rgba(16, 49, 63, 0.5); }
+
+.table thead th {
+  background-color: #eef3f4;
+  color: var(--yq-muted);
+  border-bottom: 1px solid var(--yq-line) !important;
+}
+.table-hover tbody tr { transition: background-color 120ms ease-out; }
+.table-hover tbody tr:hover { background-color: #f0f5f6; }
+.table tbody td { border-top: 1px solid var(--yq-rule); }
+
+/* ── 动效：入场（错峰）+ 按钮按压 + 侧栏过渡，全部只动 transform/opacity ── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes yq-rise {
+    from { opacity: 0; transform: translateY(7px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .content-header,
+  .content > .container-fluid > .row > [class*="col-"] {
+    animation: yq-rise 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  .content > .container-fluid > .row > [class*="col-"]:nth-child(2) { animation-delay: 45ms; }
+  .content > .container-fluid > .row > [class*="col-"]:nth-child(3) { animation-delay: 90ms; }
+  .content > .container-fluid > .row > [class*="col-"]:nth-child(4) { animation-delay: 135ms; }
+  .content > .container-fluid > .row > [class*="col-"]:nth-child(n+5) { animation-delay: 170ms; }
+
+  .nav-sidebar .nav-link { transition: background-color 140ms ease-out, color 140ms ease-out; }
+  .btn { transition: background-color 140ms ease-out, border-color 140ms ease-out, color 140ms ease-out, transform 90ms ease-out; }
+  .btn:active { transform: scale(0.985); }
+  .page-link { transition: background-color 140ms ease-out, color 140ms ease-out; }
+}
+
+/* ── 登录页：墨底 + 极淡光晕 + 金色顶线卡片 + 入场 ── */
+.login-bg {
+  background-color: #0d2b36 !important;
+  background-image:
+    radial-gradient(1100px 560px at 18% -8%, rgba(47, 122, 146, 0.30), transparent 62%),
+    radial-gradient(860px 480px at 112% 112%, rgba(184, 137, 74, 0.16), transparent 58%) !important;
+}
+
+.login-page .login-logo a { color: #ffffff; letter-spacing: 0.01em; }
+.login-page .card {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 24px 48px -28px rgba(0, 0, 0, 0.66);
+}
+.login-page .card::before {
+  content: "";
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, var(--yq-gold), var(--yq-accent));
+}
+.login-page .login-card-body { padding: 22px 22px 18px; }
+.login-page .btn-primary { padding-block: 0.52rem; letter-spacing: 0.02em; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .login-page .login-logo,
+  .login-page .card {
+    animation: yq-rise 420ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  .login-page .card { animation-delay: 70ms; }
 }
