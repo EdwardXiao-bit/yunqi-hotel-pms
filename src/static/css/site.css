@@ -679,3 +679,50 @@ code {
   }
   .login-page .card { animation-delay: 70ms; }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+ * v3（2026-10-31 二轮反馈）：KPI 四种状态的辨识度
+ * 起因：剪影统一成低饱和水印后，正常/清洁中/维修中/停用四张卡几乎同色，
+ *       看得出「有设计」但分不清状态。做法：给每张卡一条 3px 左侧状态色、
+ *       标签前一个 6px 色点、剪影按状态换色并提高一档不透明度（18%→24%），
+ *       数字仍是墨色 —— 颜色只承担「哪一类」的信息，不抢数值。
+ * ════════════════════════════════════════════════════════════════════ */
+
+.small-box.bg-success   { --kpi: #2f7d5d; --kpi-soft: rgba(47, 125, 93, 0.24); }
+.small-box.bg-info      { --kpi: #2f6f9f; --kpi-soft: rgba(47, 111, 159, 0.24); }
+.small-box.bg-warning   { --kpi: #a9761c; --kpi-soft: rgba(169, 118, 28, 0.24); }
+.small-box.bg-danger    { --kpi: #a3242a; --kpi-soft: rgba(163, 36, 42, 0.22); }
+.small-box.bg-secondary { --kpi: #64748b; --kpi-soft: rgba(100, 116, 139, 0.24); }
+.small-box.bg-primary   { --kpi: #17414f; --kpi-soft: rgba(23, 65, 79, 0.22); }
+
+.small-box[class*="bg-"] {
+  box-shadow: inset 3px 0 0 var(--kpi, var(--yq-primary)) !important;
+  padding-left: 3px;
+}
+
+.small-box[class*="bg-"] .icon { color: var(--kpi-soft) !important; }
+.small-box[class*="bg-"]:hover .icon {
+  color: var(--kpi, var(--yq-primary)) !important;
+  opacity: 0.55;
+}
+
+.small-box[class*="bg-"] .inner p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.small-box[class*="bg-"] .inner p::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--kpi, var(--yq-primary));
+  flex: 0 0 auto;
+}
+
+/* 状态徽章沿用同一套语义色，保证「看板卡片—列表徽章—KPI」三处同色 */
+.badge-success { background-color: rgba(47, 125, 93, 0.12) !important; color: #24634a !important; }
+.badge-info    { background-color: rgba(47, 111, 159, 0.12) !important; color: #24536b !important; }
+.badge-warning { background-color: rgba(169, 118, 28, 0.14) !important; color: #8a5a12 !important; }
+.badge-danger  { background-color: rgba(163, 36, 42, 0.12) !important; color: #a3242a !important; }
+.badge-secondary { background-color: rgba(100, 116, 139, 0.14) !important; color: #4b5563 !important; }
