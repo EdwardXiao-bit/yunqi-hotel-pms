@@ -1097,6 +1097,129 @@ def main() -> int:
         "P12 前台访问导出得 403",
     )
 
+    # ---------------------------------------------------------------- P14 房间维护（F02）
+    rooms_page = admin_client.get("/manage/rooms/")
+    rooms_body = rooms_page.content.decode("utf-8")
+    check(rooms_page.status_code == 200, "P14 管理员打开房间维护 200", str(rooms_page.status_code))
+    check(
+        "房间维护" in rooms_body and "批量新增房间" in rooms_body,
+        "P14 渲染房间列表与批量新增表单",
+    )
+    check(
+        reception_client.get("/manage/rooms/").status_code == 403,
+        "P14 前台访问房间维护得 403",
+    )
+    check(
+        customer_client.get("/manage/rooms/").status_code == 403,
+        "P14 客户访问房间维护得 403",
+    )
+    new_room_page = admin_client.get("/manage/rooms/new/")
+    new_room_body = new_room_page.content.decode("utf-8")
+    check(new_room_page.status_code == 200, "P14 打开新增房间页 200", str(new_room_page.status_code))
+    check(
+        'name="room_no"' in new_room_body
+        and 'name="room_type_id"' in new_room_body
+        and 'name="floor"' in new_room_body,
+        "P14 表单含房号/房型/楼层字段",
+    )
+
+    if write_checks:
+        from core.models import Room, RoomType
+
+        room_type = RoomType.objects.filter(is_active=True).order_by("id").first()
+        check(room_type is not None, "P14 离线种子存在可用房型")
+        before_rooms = Room.objects.count()
+
+        created = admin_client.post(
+            "/manage/rooms/new/",
+            {
+                "room_no": "9901",
+                "room_type_id": room_type.pk,
+                "floor": 9,
+                "orientation": "east",
+                "status": "available",
+                "remark": "冒烟新增",
+            },
+        )
+        check(
+            created.status_code == 302 and Room.objects.filter(room_no="9901").exists(),
+            "P14 新增房间成功并落库",
+            str(created.status_code),
+        )
+
+        duplicated = admin_client.post(
+            "/manage/rooms/new/",
+            {
+                "room_no": "9901",
+                "room_type_id": room_type.pk,
+                "floor": 9,
+                "orientation": "east",
+                "status": "available",
+            },
+        )
+        check(
+            duplicated.status_code == 200 and "已存在" in duplicated.content.decode("utf-8"),
+            "P14 重复房号被拒绝并给中文提示",
+        )
+
+        bulk = admin_client.post(
+            "/manage/rooms/",
+            {
+                "action": "bulk",
+                "room_type_id": room_type.pk,
+                "floor": 9,
+                "orientation": "south",
+                "status": "available",
+                "room_nos": "9902, 9903 9904",
+            },
+        )
+        check(
+            bulk.status_code == 302 and Room.objects.filter(room_no__in=["9902", "9903", "9904"]).count() == 3,
+            "P14 批量新增 3 间房",
+            str(bulk.status_code),
+        )
+        check(Room.objects.count() == before_rooms + 4, "P14 房间总数 +4")
+
+        listed = admin_client.get("/manage/rooms/?keyword=990")
+        check("9901" in listed.content.decode("utf-8"), "P14 按房号筛选命中新房")
+
+        edited = admin_client.post(
+            f"/manage/rooms/{Room.objects.get(room_no='9901').pk}/edit/",
+            {
+                "room_no": "9901",
+                "room_type_id": room_type.pk,
+                "floor": 10,
+                "orientation": "east",
+                "status": "available",
+                "remark": "改楼层",
+            },
+        )
+        room_9901 = Room.objects.get(room_no="9901")
+        check(edited.status_code == 302 and room_9901.floor == 10, "P14 编辑房间改楼层成功")
+
+        blocked = admin_client.post(
+            "/manage/rooms/",
+            {"action": "delete", "room_id": Room.objects.get(room_no="801").pk},
+        )
+        check(
+            blocked.status_code == 302 and Room.objects.filter(room_no="801").exists(),
+            "P14 有预订的房间不能删除",
+        )
+
+        deleted = admin_client.post(
+            "/manage/rooms/",
+            {"action": "delete", "room_id": room_9901.pk},
+        )
+        check(
+            deleted.status_code == 302 and not Room.objects.filter(room_no="9901").exists(),
+            "P14 无引用的房间可以删除",
+        )
+    else:
+        check(
+            "间" in rooms_body and "房号" in rooms_body,
+            "P14 真库房间列表渲染房间数据",
+        )
+
     # ---------------------------------------------------------------- 汇总
     failed = [r for r in results if not r[0]]
     print("\n" + "=" * 72)

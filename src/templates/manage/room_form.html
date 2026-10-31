@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}{% if room %}编辑房间 {{ room.room_no }}{% else %}新增房间{% endif %} · 云栖酒店{% endblock %}
+{% block page_title %}{% if room %}编辑房间 {{ room.room_no }}{% else %}新增房间{% endif %}{% endblock %}
+{% block breadcrumb_current %}系统管理{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-7">
+    <div class="card card-outline card-primary">
+      <div class="card-header">
+        <h5 class="card-title mb-0">房间信息</h5>
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label for="room-no">房号 <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="room-no" name="room_no" maxlength="10" value="{{ form.room_no }}" required>
+              <small class="form-text text-muted">房号在酒店内唯一，例如 801、1201。</small>
+            </div>
+            <div class="form-group col-md-6">
+              <label for="room-type">房型 <span class="text-danger">*</span></label>
+              <select class="form-control" id="room-type" name="room_type_id" required>
+                <option value="">请选择房型</option>
+                {% for room_type in room_types %}
+                <option value="{{ room_type.id }}" {% if form.room_type_id == room_type.id|stringformat:'s' %}selected{% endif %}>{{ room_type.name }}{% if not room_type.is_active %}（已停用）{% endif %}</option>
+                {% endfor %}
+              </select>
+              <small class="form-text text-muted">房型决定房价与可住人数；价格方案与房型绑定。</small>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-md-4">
+              <label for="floor">楼层 <span class="text-danger">*</span></label>
+              <input type="number" class="form-control" id="floor" name="floor" min="{{ floor_range.0 }}" max="{{ floor_range.1 }}" value="{{ form.floor }}" required>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="orientation">朝向</label>
+              <select class="form-control" id="orientation" name="orientation">
+                <option value="">不填</option>
+                {% for option in orientation_options %}
+                <option value="{{ option.value }}" {% if form.orientation == option.value %}selected{% endif %}>{{ option.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="status">房态</label>
+              <select class="form-control" id="status" name="status">
+                {% for option in status_options %}
+                <option value="{{ option.value }}" {% if form.status == option.value %}selected{% endif %}>{{ option.label }}</option>
+                {% endfor %}
+              </select>
+              <small class="form-text text-muted">房态只表达物理可用性；「已预订」「入住中」由订单推导。</small>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="remark">备注</label>
+            <input type="text" class="form-control" id="remark" name="remark" maxlength="200" value="{{ form.remark }}" placeholder="例如 高层安静 / 靠近电梯">
+          </div>
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save mr-1"></i>{% if room %}保存{% else %}新增房间{% endif %}</button>
+          <a href="{% url 'core:room_list' %}" class="btn btn-outline-secondary ml-1">返回列表</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card card-outline card-info">
+      <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fas fa-circle-info mr-1"></i>怎么加一批房间</h5>
+      </div>
+      <div class="card-body">
+        <p class="mb-2">如果要一次加同楼层的一批房，回列表页用「批量新增房间」：</p>
+        <ol class="pl-3 mb-2">
+          <li>选择房型与楼层，粘房号 <code>801, 802, 803</code>；</li>
+          <li>已存在的房号会自动跳过，不会覆盖；</li>
+          <li>加完后到「房态看板」把清洁/维修/停用逐间设置。</li>
+        </ol>
+        <p class="text-muted mb-0">房间只属于一个房型；房型的可用房数量 = 该房型下房态正常的房间数。</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
