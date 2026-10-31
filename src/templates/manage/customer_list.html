@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% block title %}客户与账号一览 · 云栖酒店{% endblock %}
+{% block page_title %}客户与账号一览{% endblock %}
+{% block breadcrumb_current %}系统管理{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-primary">
+      <div class="inner"><h3>{{ counts.customers }}</h3><p>客户档案</p></div>
+      <div class="icon"><i class="fas fa-users"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-info">
+      <div class="inner"><h3>{{ counts.accounts }}</h3><p>系统账号</p></div>
+      <div class="icon"><i class="fas fa-user-shield"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-warning">
+      <div class="inner"><h3>{{ counts.walkin }}</h3><p>线下散客</p></div>
+      <div class="icon"><i class="fas fa-user-friends"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-secondary">
+      <div class="inner"><h3>{{ counts.reservations }}</h3><p>历史预订</p></div>
+      <div class="icon"><i class="fas fa-calendar-check"></i></div>
+    </div>
+  </div>
+</div>
+
+<div class="card card-outline card-primary">
+  <div class="card-header">
+    <h5 class="card-title mb-0">客户列表</h5>
+    <div class="card-tools" style="width:420px">
+      <form method="get" class="form-inline justify-content-end">
+        <input type="text" name="keyword" class="form-control form-control-sm mr-2" style="width:180px"
+               value="{{ keyword }}" placeholder="姓名 / 手机 / 登录名">
+        <select name="role" class="form-control form-control-sm mr-2">
+          <option value="">全部来源</option>
+          <option value="customer" {% if role == 'customer' %}selected{% endif %}>会员客户</option>
+          <option value="walkin" {% if role == 'walkin' %}selected{% endif %}>线下散客</option>
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">筛选</button>
+        {% if keyword or role %}
+          <a class="btn btn-sm btn-outline-secondary ml-2" href="{% url 'core:customer_list' %}">重置</a>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover table-sm mb-0">
+      <thead>
+        <tr>
+          <th style="width:60px">编号</th>
+          <th style="width:110px">姓名</th>
+          <th style="width:130px">手机号</th>
+          <th style="width:180px">身份证号</th>
+          <th>登录账号</th>
+          <th style="width:100px" class="text-right">预订数</th>
+          <th style="width:130px" class="text-right">在住/已住金额</th>
+          <th style="width:120px">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in customers %}
+          <tr>
+            <td class="text-monospace">{{ item.id }}</td>
+            <td>{{ item.name }}</td>
+            <td class="text-monospace">{{ item.phone }}</td>
+            <td class="text-monospace">{{ item.id_card|default:"—" }}</td>
+            <td>
+              {% if item.user %}
+                {{ item.user.username }}
+                <span class="badge badge-light ml-1">{{ item.user.role_label }}</span>
+                {% if not item.user.is_active %}<span class="badge badge-secondary">已停用</span>{% endif %}
+              {% else %}
+                <span class="badge badge-warning">线下散客</span>
+              {% endif %}
+            </td>
+            <td class="text-right">{{ item.reservation_count }}</td>
+            <td class="text-right text-monospace">{{ item.stay_total|default:"0.00" }}</td>
+            <td>
+              {% if item.reservation_count %}
+                <a class="btn btn-sm btn-outline-primary"
+                   href="{% url 'core:reception_reservations' %}?keyword={{ item.phone }}">
+                  查预订
+                </a>
+              {% else %}
+                <span class="text-muted small">无预订</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="8" class="text-center text-muted py-4">没有匹配的客户。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer">
+    {% include 'partials/pagination.html' with page_obj=page querystring=querystring %}
+  </div>
+</div>
+
+<div class="card card-outline card-secondary">
+  <div class="card-header"><h5 class="card-title mb-0">系统账号（{{ accounts|length }}）</h5></div>
+  <div class="card-body p-0">
+    <table class="table table-hover table-sm mb-0">
+      <thead>
+        <tr>
+          <th style="width:60px">编号</th>
+          <th style="width:140px">登录名</th>
+          <th style="width:140px">显示名</th>
+          <th style="width:120px">角色</th>
+          <th>手机号</th>
+          <th style="width:170px">最后登录</th>
+          <th style="width:90px">状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for account in accounts %}
+          <tr>
+            <td class="text-monospace">{{ account.id }}</td>
+            <td class="text-monospace">{{ account.username }}</td>
+            <td>{{ account.display_name }}</td>
+            <td>{{ account.role_label }}</td>
+            <td class="text-monospace">{{ account.phone|default:"—" }}</td>
+            <td>{{ account.last_login|date:"Y-m-d H:i"|default:"—" }}</td>
+            <td>
+              {% if account.is_active %}
+                <span class="badge badge-success">启用</span>
+              {% else %}
+                <span class="badge badge-secondary">停用</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer small text-muted">
+    本页只读：账号由 `sql/03_seed.sql` 统一灌入（口令 `Hotel@123`），客户档案在入住或预订时自动建立；
+    金额列统计的是“在住 + 已退房”订单的预订总额，取消/未到店不计。
+  </div>
+</div>
+{% endblock %}

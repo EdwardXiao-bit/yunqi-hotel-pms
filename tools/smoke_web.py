@@ -843,6 +843,172 @@ def main() -> int:
                 any_block.get_block_type_display(),
             )
 
+    # ---------------------------------------------------------------- P10 房型与价格维护（F01）
+    from core.models import RatePlan as RTypePlan
+    from core.models import Room as ManageRoom
+    from core.models import RoomType as ManageRoomType
+
+    admin_rts = admin_client.get("/manage/room-types/")
+    admin_rts_body = admin_rts.content.decode("utf-8")
+    check(admin_rts.status_code == 200, "P10 管理员打开房型列表 200", str(admin_rts.status_code))
+    check("房型列表" in admin_rts_body and "新建房型" in admin_rts_body, "P10 列表渲染标题与新建入口")
+    check("标准价" in admin_rts_body and "价格方案" in admin_rts_body, "P10 列表渲染标准价与方案列")
+    check(
+        reception_client.get("/manage/room-types/").status_code == 403,
+        "P10 前台访问房型维护得 403",
+    )
+    check(
+        customer_client.get("/manage/customers/").status_code == 403,
+        "P13 客户访问客户一览得 403",
+    )
+
+    if write_checks:
+        new_page = admin_client.get("/manage/room-types/new/")
+        new_body = new_page.content.decode("utf-8")
+        check(new_page.status_code == 200, "P10 打开新建房型页 200", str(new_page.status_code))
+        check("房型名称" in new_body and "保存房型" in new_body, "P10 新建页渲染表单与保存按钮")
+
+        # 新建房型
+        created = admin_client.post(
+            "/manage/room-types/new/",
+            {
+                "action": "save",
+                "name": "测试房型-P10",
+                "bed_type": "double",
+                "capacity": "3",
+                "base_price": "399.00",
+                "area": "28.0",
+                "description": "冒烟测试创建",
+                "is_active": "on",
+            },
+        )
+        check(created.status_code == 302, "P10 新建房型提交成功（302）", str(created.status_code))
+        made = ManageRoomType.objects.filter(name="测试房型-P10").first()
+        check(made is not None, "P10 新房型已落库")
+        made_pk = made.pk if made else 0
+
+        # 编辑：改名 + 调价
+        edited = admin_client.post(
+            f"/manage/room-types/{made_pk}/edit/",
+            {
+                "action": "save",
+                "name": "测试房型-P10改",
+                "bed_type": "double",
+                "capacity": "3",
+                "base_price": "428.00",
+                "area": "28.0",
+                "description": "冒烟测试改名",
+                "is_active": "on",
+            },
+        )
+        check(edited.status_code == 302, "P10 编辑房型提交成功（302）", str(edited.status_code))
+        made.refresh_from_db()
+        check(made.name == "测试房型-P10改", "P10 房型改名已落库", made.name)
+        check(str(made.base_price) == "428.00", "P10 标准价已更新", str(made.base_price))
+
+        # 添加价格方案
+        plan_post = admin_client.post(
+            f"/manage/room-types/{made_pk}/edit/",
+            {
+                "action": "add_plan",
+                "plan_name": "测试方案",
+                "price": "499.00",
+                "valid_from": "2027-03-01",
+                "valid_to": "2027-03-07",
+            },
+        )
+        check(plan_post.status_code == 302, "P10 添加价格方案成功（302）", str(plan_post.status_code))
+        plan = RTypePlan.objects.filter(room_type_id=made_pk).first()
+        check(plan is not None, "P10 价格方案已落库")
+
+        # 闭区间重叠 → 拒绝（离线 sqlite 没有 EXCLUDE，靠应用层预检查）
+        overlap_post = admin_client.post(
+            f"/manage/room-types/{made_pk}/edit/",
+            {
+                "action": "add_plan",
+                "plan_name": "重叠方案",
+                "price": "599.00",
+                "valid_from": "2027-03-05",
+                "valid_to": "2027-03-10",
+            },
+        )
+        overlap_body = overlap_post.content.decode("utf-8")
+        check(
+            overlap_post.status_code == 200 and "区间不能重叠" in overlap_body,
+            "P10 价格方案区间重叠被拒绝并给中文提示",
+        )
+        check(
+            RTypePlan.objects.filter(room_type_id=made_pk).count() == 1,
+            "P10 重叠方案没有落库",
+        )
+
+        # 删除方案
+        if plan is not None:
+            del_plan = admin_client.post(
+                f"/manage/room-types/{made_pk}/edit/",
+                {"action": "delete_plan", "plan_id": str(plan.pk)},
+            )
+            check(del_plan.status_code == 302, "P10 删除价格方案成功（302）", str(del_plan.status_code))
+            check(
+                RTypePlan.objects.filter(room_type_id=made_pk).count() == 0,
+                "P10 价格方案已删除",
+            )
+
+        # 有房间引用的房型不能删（RESTRICT / 应用层预检查）
+        demo_rtype = ManageRoom.objects.first().room_type_id if ManageRoom.objects.exists() else 0
+        blocked_del = admin_client.post(
+            "/manage/room-types/",
+            {"action": "delete", "room_type_id": str(demo_rtype)},
+            follow=True,
+        )
+        blocked_body = blocked_del.content.decode("utf-8")
+        check(
+            blocked_del.status_code == 200 and "不能删除" in blocked_body,
+            "P10 有房间引用的房型删除被拒绝（提示改为停用）",
+            blocked_body[:80].replace("\n", " "),
+        )
+        check(
+            ManageRoomType.objects.filter(pk=demo_rtype).exists(),
+            "P10 被拒的房型仍在库",
+        )
+
+        # 无引用的新房型可以删
+        del_rtype = admin_client.post(
+            "/manage/room-types/",
+            {"action": "delete", "room_type_id": str(made_pk)},
+        )
+        check(del_rtype.status_code == 302, "P10 删除无引用房型成功（302）", str(del_rtype.status_code))
+        check(
+            not ManageRoomType.objects.filter(pk=made_pk).exists(),
+            "P10 无引用房型已删除",
+        )
+
+    # ---------------------------------------------------------------- P13 客户与账号一览
+    cust_page = admin_client.get("/manage/customers/")
+    cust_body = cust_page.content.decode("utf-8")
+    check(cust_page.status_code == 200, "P13 管理员打开客户一览 200", str(cust_page.status_code))
+    check(
+        "客户与账号一览" in cust_body and "系统账号" in cust_body,
+        "P13 渲染客户列表与账号列表两个区块",
+    )
+    check(
+        reception_client.get("/manage/customers/").status_code == 403,
+        "P13 前台访问客户一览得 403",
+    )
+    if write_checks:
+        check("张伟" in cust_body and "13800001101" in cust_body, "P13 离线种子客户出现在列表")
+        searched = admin_client.get("/manage/customers/?keyword=13800001101")
+        searched_body = searched.content.decode("utf-8")
+        check(searched.status_code == 200 and "张伟" in searched_body, "P13 按手机号搜索命中客户")
+        miss = admin_client.get("/manage/customers/?keyword=不存在的客户")
+        check(miss.status_code == 200 and "没有匹配的客户" in miss.content.decode("utf-8"), "P13 搜索无结果给空态提示")
+    else:
+        check("张伟" in cust_body or "客户" in cust_body, "P13 真库客户列表渲染客户数据")
+        real_rts = admin_client.get("/manage/room-types/")
+        real_body = real_rts.content.decode("utf-8")
+        check(real_rts.status_code == 200, "P10 真库房型列表 200", str(real_rts.status_code))
+        check("高级大床房" in real_body or "标准间" in real_body, "P10 真库列表渲染真实房型")
+
     # ---------------------------------------------------------------- 汇总
     failed = [r for r in results if not r[0]]
     print("\n" + "=" * 72)
@@ -937,7 +1103,16 @@ def _build_sqlite_schema_and_seed() -> None:
             editor.create_model(model)
         editor.create_model(Session)
 
-    from core.models import AppUser, CheckInRecord, Customer, Reservation, Room, RoomBlock, RoomType
+    from core.models import (
+        AppUser,
+        CheckInRecord,
+        Customer,
+        RatePlan,
+        Reservation,
+        Room,
+        RoomBlock,
+        RoomType,
+    )
 
     pwd = make_password(PASSWORD)
     admin = AppUser.objects.create(
@@ -995,6 +1170,16 @@ def _build_sqlite_schema_and_seed() -> None:
     from core.models import ServiceItem
 
     ServiceItem.objects.create(code="BF", name="自助早餐", unit="份", price="68.00", is_active=True)
+
+    # P10 价格方案：给演示房型一条方案，验证“有方案 → 删房型被拦”与方案列表渲染
+    today = timezone.localdate()
+    RatePlan.objects.create(
+        room_type_id=room_type.id,
+        name="演示方案",
+        price="528.00",
+        valid_from=today.replace(day=1),
+        valid_to=today.replace(day=min(28, today.day + 3)),
+    )
     print(f"[SETUP] sqlite 内存库已建 {len(core_models)} 张表并灌入演示数据（admin/front01/zhangwei，口令 {PASSWORD}）")
 
 

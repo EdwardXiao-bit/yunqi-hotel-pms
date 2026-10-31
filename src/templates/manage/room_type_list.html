@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}房型与价格维护 · 云栖酒店{% endblock %}
+{% block page_title %}房型与价格维护{% endblock %}
+{% block breadcrumb_current %}系统管理{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-primary">
+      <div class="inner"><h3>{{ summary.room_types }}</h3><p>房型总数</p></div>
+      <div class="icon"><i class="fas fa-bed"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-success">
+      <div class="inner"><h3>{{ summary.active }}</h3><p>在售房型</p></div>
+      <div class="icon"><i class="fas fa-check-circle"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-info">
+      <div class="inner"><h3>{{ summary.plans }}</h3><p>价格方案</p></div>
+      <div class="icon"><i class="fas fa-tags"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-secondary">
+      <div class="inner"><h3>{{ summary.rooms }}</h3><p>房间数</p></div>
+      <div class="icon"><i class="fas fa-door-open"></i></div>
+    </div>
+  </div>
+</div>
+
+<div class="card card-outline card-primary">
+  <div class="card-header">
+    <h5 class="card-title mb-0">房型列表</h5>
+    <div class="card-tools">
+      <a class="btn btn-sm btn-primary" href="{% url 'core:room_type_new' %}">
+        <i class="fas fa-plus mr-1"></i>新建房型
+      </a>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover table-sm mb-0">
+      <thead>
+        <tr>
+          <th style="width:60px">编号</th>
+          <th>房型名称</th>
+          <th style="width:100px">床型</th>
+          <th style="width:90px">面积(㎡)</th>
+          <th style="width:90px">可住人数</th>
+          <th style="width:120px" class="text-right">标准价(元)</th>
+          <th style="width:90px" class="text-right">房间数</th>
+          <th style="width:80px" class="text-right">可售房</th>
+          <th style="width:90px" class="text-right">价格方案</th>
+          <th style="width:90px">状态</th>
+          <th style="width:200px">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in room_types %}
+          <tr>
+            <td class="text-monospace">{{ item.id }}</td>
+            <td>{{ item.name }}</td>
+            <td>{{ item.get_bed_type_display }}</td>
+            <td>{{ item.area|default:"—" }}</td>
+            <td>{{ item.capacity }} 人</td>
+            <td class="text-right text-monospace">{{ item.base_price }}</td>
+            <td class="text-right">{{ item.room_count }}</td>
+            <td class="text-right">{{ item.sellable_count }}</td>
+            <td class="text-right">{{ item.plan_count }}</td>
+            <td>
+              {% if item.is_active %}
+                <span class="badge badge-success">在售</span>
+              {% else %}
+                <span class="badge badge-secondary">已停用</span>
+              {% endif %}
+            </td>
+            <td>
+              <a class="btn btn-sm btn-outline-primary" href="{% url 'core:room_type_edit' item.id %}">
+                <i class="fas fa-edit"></i> 编辑
+              </a>
+              <form method="post" class="d-inline" data-confirm="确认{% if item.is_active %}停用{% else %}重新上架{% endif %}「{{ item.name }}」？停用后客户查不到该房型，但不影响已存在的房间与订单。">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="toggle">
+                <input type="hidden" name="room_type_id" value="{{ item.id }}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                  {% if item.is_active %}停用{% else %}上架{% endif %}
+                </button>
+              </form>
+              <form method="post" class="d-inline" data-confirm="确认删除「{{ item.name }}」？只有没有任何房间/价格方案引用时才能删除，删除不可恢复。">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="room_type_id" value="{{ item.id }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+              </form>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="11" class="text-center text-muted py-4">还没有房型，先新建一个。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer text-muted small">
+    标准价是“没有命中价格方案时的兜底价”；价格方案按生效区间覆盖标准价（闭区间，含起止当天）。
+    已确认订单的逐日成交价已写入 <code>reservation_price</code>，之后调价不影响历史订单。
+  </div>
+</div>
+{% endblock %}

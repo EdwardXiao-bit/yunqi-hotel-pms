@@ -5,6 +5,7 @@ from .checkin import checkin_new, walkin_checkin
 from .checkout import checkout_detail
 from .errors import page_not_found, permission_denied, server_error
 from .home import customer_home, manage_home, reception_home
+from .manage import customer_list, room_type_form, room_type_list
 from .reservations import (
     my_reservation_cancel,
     my_reservation_detail,
@@ -30,6 +31,9 @@ __all__ = [
     "walkin_checkin",
     "checkout_detail",
     "room_board",
+    "room_type_list",
+    "room_type_form",
+    "customer_list",
     "permission_denied",
     "page_not_found",
     "server_error",

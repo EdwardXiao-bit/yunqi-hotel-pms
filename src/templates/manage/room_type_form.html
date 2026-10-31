@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% block title %}{% if room_type %}编辑房型 · {{ room_type.name }}{% else %}新建房型{% endif %} · 云栖酒店{% endblock %}
+{% block page_title %}{% if room_type %}编辑房型：{{ room_type.name }}{% else %}新建房型{% endif %}{% endblock %}
+{% block breadcrumb_current %}系统管理{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card card-outline card-primary">
+      <div class="card-header"><h5 class="card-title mb-0">房型信息</h5></div>
+      <form method="post" data-confirm="确认保存房型信息？">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save">
+        <div class="card-body">
+          <div class="form-group">
+            <label for="name">房型名称 <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="name" name="name" maxlength="50" required
+                   value="{{ form.name }}" placeholder="如：高级大床房">
+            <small class="form-text text-muted">名称唯一，最多 50 字。</small>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label for="bed_type">床型 <span class="text-danger">*</span></label>
+              <select class="form-control" id="bed_type" name="bed_type" required>
+                {% for value, label in bed_types %}
+                  <option value="{{ value }}"
+                    {% if form.bed_type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group col-md-6">
+              <label for="capacity">可住人数 <span class="text-danger">*</span></label>
+              <input type="number" class="form-control" id="capacity" name="capacity" min="1" max="8" required
+                     value="{{ form.capacity }}">
+              <small class="form-text text-muted">1–8 人，与数据库 CHECK 一致。</small>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label for="base_price">标准价（元/晚）<span class="text-danger">*</span></label>
+              <input type="number" step="0.01" min="0" class="form-control" id="base_price" name="base_price" required
+                     value="{{ form.base_price }}">
+              <small class="form-text text-muted">未命中价格方案时使用这个价。</small>
+            </div>
+            <div class="form-group col-md-6">
+              <label for="area">面积（㎡）</label>
+              <input type="number" step="0.1" min="0" class="form-control" id="area" name="area"
+                     value="{{ form.area }}" placeholder="可留空">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="description">简介</label>
+            <input type="text" class="form-control" id="description" name="description" maxlength="200"
+                   value="{{ form.description }}" placeholder="一句话描述，最多 200 字">
+          </div>
+          <div class="custom-control custom-switch">
+            <input type="checkbox" class="custom-control-input" id="is_active" name="is_active"
+                   {% if form.is_active %}checked{% endif %}>
+            <label class="custom-control-label" for="is_active">在售（停用后客户查不到该房型）</label>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save mr-1"></i>保存房型</button>
+          <a class="btn btn-outline-secondary" href="{% url 'core:room_type_list' %}">返回列表</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    {% if room_type %}
+      <div class="card card-outline card-info">
+        <div class="card-header"><h5 class="card-title mb-0">价格方案（{{ plans|length }}）</h5></div>
+        <div class="card-body p-0">
+          <table class="table table-hover table-sm mb-0">
+            <thead>
+              <tr>
+                <th>方案名称</th>
+                <th style="width:130px">生效起</th>
+                <th style="width:130px">生效止</th>
+                <th style="width:110px" class="text-right">价格(元/晚)</th>
+                <th style="width:70px">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for plan in plans %}
+                <tr>
+                  <td>{{ plan.name|default:"（未命名）" }}</td>
+                  <td class="text-monospace">{{ plan.valid_from }}</td>
+                  <td class="text-monospace">{{ plan.valid_to }}</td>
+                  <td class="text-right text-monospace">{{ plan.price }}</td>
+                  <td>
+                    <form method="post" data-confirm="确认删除该价格方案（{{ plan.valid_from }} 至 {{ plan.valid_to }}）？">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="delete_plan">
+                      <input type="hidden" name="plan_id" value="{{ plan.id }}">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+                    </form>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-3">还没有价格方案，命中不到时按标准价 {{ room_type.base_price }} 元/晚</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer">
+          <form method="post" class="form-row align-items-end" data-confirm="确认添加这个价格方案？同一房型的生效区间不允许重叠。">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_plan">
+            <div class="form-group col-md-4 mb-0">
+              <label class="small" for="plan_name">方案名称</label>
+              <input type="text" class="form-control form-control-sm" id="plan_name" name="plan_name" maxlength="50"
+                     placeholder="如：国庆价">
+            </div>
+            <div class="form-group col-md-3 mb-0">
+              <label class="small" for="price">价格</label>
+              <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="price" name="price" required>
+            </div>
+            <div class="form-group col-md-2 mb-0">
+              <label class="small" for="valid_from">生效起</label>
+              <input type="date" class="form-control form-control-sm" id="valid_from" name="valid_from" required>
+            </div>
+            <div class="form-group col-md-2 mb-0">
+              <label class="small" for="valid_to">生效止</label>
+              <input type="date" class="form-control form-control-sm" id="valid_to" name="valid_to" required>
+            </div>
+            <div class="form-group col-md-1 mb-0">
+              <button type="submit" class="btn btn-sm btn-info btn-block">添加</button>
+            </div>
+          </form>
+          <div class="small text-muted mt-2">
+            生效区间是<strong>闭区间</strong>（含起止当天）；区间重叠会被数据库排他约束
+            <code>ex_rate_plan_no_overlap</code> 拒绝（SQLSTATE 23P01）。改价请删旧方案再建新方案。
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-outline card-danger">
+        <div class="card-header"><h5 class="card-title mb-0">删除房型</h5></div>
+        <div class="card-body">
+          <p class="text-muted small mb-2">
+            只有该房型下没有任何房间、且没有价格方案时才能删除；否则数据库会以 RESTRICT 拒绝（E08），
+            这时请改用「停用」——停用不影响已有房间与订单，只是客户查不到。
+          </p>
+          <form method="post" data-confirm="确认删除房型「{{ room_type.name }}」？删除不可恢复。">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete">
+            <button type="submit" class="btn btn-sm btn-outline-danger">删除该房型</button>
+          </form>
+        </div>
+      </div>
+    {% else %}
+      <div class="card card-outline card-secondary">
+        <div class="card-header"><h5 class="card-title mb-0">价格方案</h5></div>
+        <div class="card-body text-muted">
+          保存房型后，可以在这里为它添加按生效区间定价的方案（如国庆价、元旦价）。
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from django.urls import path
 
-from .views import auth, board, checkin, checkout, home, reservations, rooms
+from .views import auth, board, checkin, checkout, home, manage, reservations, rooms
 
 app_name = "core"
 
@@ -37,4 +37,10 @@ urlpatterns = [
     path("reception/board/", board.room_board, name="room_board"),
     # 管理概览
     path("manage/", home.manage_home, name="manage_home"),
+    # P10 房型与价格维护（F01）
+    path("manage/room-types/", manage.room_type_list, name="room_type_list"),
+    path("manage/room-types/new/", manage.room_type_form, name="room_type_new"),
+    path("manage/room-types/<int:pk>/edit/", manage.room_type_form, name="room_type_edit"),
+    # P13 客户与账号一览
+    path("manage/customers/", manage.customer_list, name="customer_list"),
 ]

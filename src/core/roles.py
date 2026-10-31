@@ -77,6 +77,8 @@ NAV_SECTIONS: tuple[NavSection, ...] = (
         roles=(ROLE_ADMIN,),
         items=(
             NavItem("管理概览", "core:manage_home", "fas fa-tachometer-alt"),
+            NavItem("房型与价格", "core:room_type_list", "fas fa-bed"),
+            NavItem("客户一览", "core:customer_list", "fas fa-users"),
         ),
     ),
 )
