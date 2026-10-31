@@ -42,6 +42,7 @@ from .reservations import (
     _translate_booking_error,
     _try_date,
 )
+from .checkout import record_deposit
 from .rooms import _query_available
 
 DEFAULT_DEPOSIT = Decimal("200.00")
@@ -171,7 +172,7 @@ def _submit_checkin(request):
 
     try:
         with transaction.atomic():
-            CheckInRecord.objects.create(
+            record = CheckInRecord.objects.create(
                 reservation=reservation,
                 guest_name=data["guest_name"],
                 guest_phone=data["guest_phone"],
@@ -183,6 +184,8 @@ def _submit_checkin(request):
                 total_charge=reservation.total_amount,
                 remark=data["remark"] or None,
             )
+            # 押金同时记一条支付流水，退房结算按「应收 − 已收已退」算差额（与 v_check_in_detail 口径一致）
+            record_deposit(record, deposit, request.user)
             reservation.status = "checked_in"
             reservation.save(update_fields=["status", "updated_at"])
     except IntegrityError as exc:
@@ -328,7 +331,7 @@ def _submit_walkin(request):
                 total_amount=total,
                 remark=data["remark"],
             )
-            CheckInRecord.objects.create(
+            record = CheckInRecord.objects.create(
                 reservation=reservation,
                 guest_name=data["guest_name"],
                 guest_phone=data["guest_phone"],
@@ -340,6 +343,7 @@ def _submit_walkin(request):
                 total_charge=total,
                 remark="散客入住",
             )
+            record_deposit(record, deposit, request.user)
     except IntegrityError as exc:
         messages.error(request, _translate_booking_error(exc))
         return redirect(_walkin_back(check_in, check_out))

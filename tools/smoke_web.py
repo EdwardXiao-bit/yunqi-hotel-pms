@@ -595,6 +595,95 @@ def main() -> int:
         extended_detail = customer_client.get(checkin_url).content.decode("utf-8")
         check(block_out in extended_detail, "续住后订单详情显示新的离店日期")
 
+    # ---------------------------------------------------------------- P08 退房结算（F07）
+    from decimal import Decimal
+
+    from django.utils import timezone
+
+    from core.models import CheckInRecord, Payment, Reservation, Room, ServiceItem, ServiceOrder
+
+    if write_checks:
+        record = CheckInRecord.objects.filter(reservation_id=checkin_id).first()
+        check(record is not None, "P08 前置：上一步入住记录已生成")
+        record_pk = record.pk if record else 0
+        checkout_url = f"/reception/checkout/{record_pk}/"
+
+        bill_page = reception_client.get(checkout_url)
+        bill_body = bill_page.content.decode("utf-8")
+        check(bill_page.status_code == 200, "P08 前台打开退房结算页 200", str(bill_page.status_code))
+        check("应收合计" in bill_body and "已收已退" in bill_body, "P08 账单预览渲染金额汇总")
+        check("还应收" in bill_body or "还应退" in bill_body, "P08 押金不足时显示还应收/还应退")
+        check(
+            customer_client.get(checkout_url).status_code == 403,
+            "客户访问 P08 退房结算页得 403",
+        )
+        check(admin_client.get(checkout_url).status_code == 200, "管理员可打开 P08 退房结算页")
+
+        unpaid = reception_client.post(
+            checkout_url,
+            {"actual_checkout_at": (timezone.localtime() + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%S")},
+        )
+        unpaid_body = unpaid.content.decode("utf-8")
+        due_match = re.search(r"还需补收\s*([\d.]+)\s*元", unpaid_body)
+        check(due_match is not None, "P08 未登记收款时提示“还需补收 N 元”", due_match.group(1) if due_match else unpaid_body[:60])
+
+        bf = ServiceItem.objects.filter(code="BF").first()
+        settle_amount = (Decimal(due_match.group(1)) + Decimal("68.00") * 2) if due_match and bf else None
+        settled_post = reception_client.post(
+            checkout_url,
+            {
+                "actual_checkout_at": (timezone.localtime() + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%S"),
+                "extra_room_charge": "0",
+                "service_item_id": str(bf.pk) if bf else "",
+                "service_quantity": "2",
+                "payment_kind": "room_fee",
+                "payment_method": "cash",
+                "payment_amount": str(settle_amount) if settle_amount is not None else "",
+            },
+        )
+        check(settled_post.status_code == 302, "P08 差额结清后提交退房成功（302）", str(settled_post.status_code))
+
+        record.refresh_from_db()
+        reservation_now = Reservation.objects.get(pk=checkin_id)
+        room_now = Room.objects.get(pk=f06_room)
+        orders = ServiceOrder.objects.filter(check_in_record_id=record_pk)
+        pays = Payment.objects.filter(check_in_record_id=record_pk).order_by("id")
+        check(reservation_now.status == "checked_out", "P08 退房后订单状态置为已退房", reservation_now.status)
+        check(record.actual_checkout_at is not None, "P08 入住记录写入实际退房时间")
+        check(record.total_charge == record.room_charge + record.service_charge, "P08 应收合计 = 房费 + 服务费", str(record.total_charge))
+        check(room_now.status == "cleaning", "P08 退房后房间转为清洁中", room_now.status)
+        check(
+            orders.count() == 1 and orders.first().amount == Decimal("136.00"),
+            "P08 增值服务按数量 × 单价落库（2 × 68.00 = 136.00）",
+            f"{orders.count()} 行 / {orders.first().amount if orders else '-'}",
+        )
+        check(
+            pays.count() == 2 and sum((p.amount for p in pays), Decimal("0.00")) == record.total_charge,
+            "P08 押金 + 结算款两笔流水，合计等于应收",
+            " / ".join(f"{p.kind}:{p.amount}" for p in pays),
+        )
+
+        again_checkout = reception_client.post(
+            checkout_url,
+            {"actual_checkout_at": (timezone.localtime() + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%S")},
+        )
+        check("不能重复结算" in again_checkout.content.decode("utf-8"), "P08 重复结算被拦截并给中文提示")
+    else:
+        in_house = CheckInRecord.objects.filter(actual_checkout_at__isnull=True).order_by("id").last()
+        check(in_house is not None, "P08 真库存在可结算的在住记录")
+        if in_house is not None:
+            real_page = reception_client.get(f"/reception/checkout/{in_house.pk}/")
+            real_body = real_page.content.decode("utf-8")
+            check(real_page.status_code == 200, "P08 真库打开退房结算页 200", str(real_page.status_code))
+            check(
+                "应收合计" in real_body and "押金" in real_body,
+                "P08 真库结算页渲染账单与押金",
+            )
+            check(
+                customer_client.get(f"/reception/checkout/{in_house.pk}/").status_code == 403,
+                "P08 真库客户访问结算页得 403",
+            )
+
     # ---------------------------------------------------------------- 汇总
     failed = [r for r in results if not r[0]]
     print("\n" + "=" * 72)
@@ -741,6 +830,10 @@ def _build_sqlite_schema_and_seed() -> None:
         room=room2, start_date=today, end_date=today.replace(day=min(28, today.day + 2)),
         block_type="maintenance", reason="演示：空调保养", created_by=admin,
     )
+
+    from core.models import ServiceItem
+
+    ServiceItem.objects.create(code="BF", name="自助早餐", unit="份", price="68.00", is_active=True)
     print(f"[SETUP] sqlite 内存库已建 {len(core_models)} 张表并灌入演示数据（admin/front01/zhangwei，口令 {PASSWORD}）")
 
 

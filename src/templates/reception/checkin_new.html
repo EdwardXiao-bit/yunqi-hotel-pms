@@ -145,7 +145,7 @@
       <div class="card-body p-0">
         {% if in_house %}
         <table class="table table-sm mb-0">
-          <thead><tr><th>房号</th><th>客人</th><th>离店</th><th style="width:11rem">续住</th></tr></thead>
+          <thead><tr><th>房号</th><th>客人</th><th>离店</th><th style="width:11rem">续住</th><th class="text-right">退房</th></tr></thead>
           <tbody>
             {% for r in in_house %}
             <tr>
@@ -162,6 +162,15 @@
                          aria-label="新的离店日期" required>
                   <button type="submit" class="btn btn-xs btn-outline-primary" data-confirm="确认续住到该日期？将按新日期重算逐日价格。">续住</button>
                 </form>
+              </td>
+              <td class="text-right">
+                {% if r.check_in %}
+                <a href="{% url 'core:checkout_detail' r.check_in.pk %}" class="btn btn-xs btn-outline-success text-nowrap">
+                  <i class="fas fa-sign-out-alt mr-1"></i>结算
+                </a>
+                {% else %}
+                <span class="text-muted small">无入住记录</span>
+                {% endif %}
               </td>
             </tr>
             {% endfor %}
