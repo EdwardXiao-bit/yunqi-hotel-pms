@@ -40,6 +40,7 @@ from ..models import (
     Room,
     RoomBlock,
     RoomType,
+    ServiceOrder,
 )
 from ..roles import ROLE_CUSTOMER, ROLE_RECEPTIONIST
 from .rooms import _query_available, _translate_db_error
@@ -443,6 +444,14 @@ def _render_detail(request, reservation: Reservation, *, template: str):
         if check_in_record
         else Payment.objects.none()
     )
+    service_orders = (
+        ServiceOrder.objects.filter(check_in_record_id=check_in_record.pk)
+        .select_related("service_item")
+        .order_by("id")
+        if check_in_record
+        else ServiceOrder.objects.none()
+    )
+    service_total = sum((row.amount for row in service_orders), 0)
     return render(
         request,
         template,
@@ -451,6 +460,8 @@ def _render_detail(request, reservation: Reservation, *, template: str):
             "daily_prices": daily_prices,
             "check_in_record": check_in_record,
             "payments": payments,
+            "service_orders": service_orders,
+            "service_total": service_total,
             "status_label": STATUS_LABELS.get(reservation.status, reservation.status),
             "can_cancel": _can_cancel(reservation),
             "today": timezone.localdate(),

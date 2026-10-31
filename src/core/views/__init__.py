@@ -15,8 +15,18 @@ from .reservations import (
     reservation_create,
 )
 from .rooms import available_rooms
+from .services import (
+    service_item_form,
+    service_item_list,
+    service_record_list,
+    service_register,
+)
 
 __all__ = [
+    "service_item_list",
+    "service_item_form",
+    "service_register",
+    "service_record_list",
     "login_view",
     "logout_view",
     "customer_home",

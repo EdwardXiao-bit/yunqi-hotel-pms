@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from django.urls import path
 
-from .views import auth, board, checkin, checkout, home, manage, reservations, rooms
+from .views import auth, board, checkin, checkout, home, manage, reservations, rooms, services
 from .views.reports import reports as reports_view
 from .views.reports import reservation_export, reservation_list
 
@@ -49,6 +49,13 @@ urlpatterns = [
     path("manage/rooms/", manage.room_list, name="room_list"),
     path("manage/rooms/new/", manage.room_form, name="room_new"),
     path("manage/rooms/<int:pk>/edit/", manage.room_form, name="room_edit"),
+    # P15 增值服务价目表（F07 辅助）
+    path("manage/service-items/", services.service_item_list, name="service_item_list"),
+    path("manage/service-items/new/", services.service_item_form, name="service_item_new"),
+    path("manage/service-items/<int:pk>/edit/", services.service_item_form, name="service_item_edit"),
+    # P16 增值服务登记与消费记录（F07）
+    path("reception/services/", services.service_register, name="service_register"),
+    path("reception/services/records/", services.service_record_list, name="service_record_list"),
     # P11 经营统计报表（F09）
     path("manage/reports/", reports_view, name="reports"),
     # P12 预订总览（F05 管理员视角，只读 + 导出）

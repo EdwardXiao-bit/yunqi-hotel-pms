@@ -1220,6 +1220,202 @@ def main() -> int:
             "P14 真库房间列表渲染房间数据",
         )
 
+    # ---------------------------------------------------------------- P15 增值服务价目表
+    from core.models import ServiceItem, ServiceOrder
+    from core.models import CheckInRecord as SvcRecord
+
+    items_page = admin_client.get("/manage/service-items/")
+    items_body = items_page.content.decode("utf-8")
+    check(items_page.status_code == 200, "P15 管理员打开增值服务价目表 200", str(items_page.status_code))
+    check(
+        "增值服务价目表" in items_body and "消费明细条数" in items_body,
+        "P15 渲染价目表与使用统计",
+    )
+    check(reception_client.get("/manage/service-items/").status_code == 403, "P15 前台访问价目表得 403")
+    check(customer_client.get("/manage/service-items/").status_code == 403, "P15 客户访问价目表得 403")
+
+    new_item_page = admin_client.get("/manage/service-items/new/")
+    new_item_body = new_item_page.content.decode("utf-8")
+    check(new_item_page.status_code == 200, "P15 打开新增服务项目页 200", str(new_item_page.status_code))
+    check(
+        "服务编码" in new_item_body and "单价(元)" in new_item_body,
+        "P15 新增页含编码/名称/单价字段",
+    )
+
+    if args.mode == "sqlite":
+        # 真库是演示数据，只读核对；写操作只在内存 sqlite 上做
+        before_items = ServiceItem.objects.count()
+        created = admin_client.post(
+            "/manage/service-items/new/",
+            {"code": "TST1", "name": "测试晚茶", "unit": "份", "price": "36.00", "is_active": "1"},
+        )
+        created_item = ServiceItem.objects.filter(code="TST1").first()
+        check(
+            created.status_code == 302 and created_item is not None,
+            "P15 新增服务项目成功并落库",
+            str(created.status_code),
+        )
+        check(ServiceItem.objects.count() == before_items + 1, "P15 服务项目总数 +1")
+
+        dup_item = admin_client.post(
+            "/manage/service-items/new/",
+            {"code": "TST1", "name": "另一个名字", "unit": "份", "price": "10.00", "is_active": "1"},
+            follow=True,
+        )
+        check(
+            dup_item.status_code == 200 and "已存在" in dup_item.content.decode("utf-8"),
+            "P15 重复服务编码被拒绝并给中文提示",
+        )
+
+        edit_item = admin_client.post(
+            "/manage/service-items/%d/edit/" % created_item.pk,
+            {"code": "TST1", "name": "测试晚茶", "unit": "份", "price": "42.00", "is_active": "1"},
+        )
+        created_item.refresh_from_db()
+        check(
+            edit_item.status_code == 302 and str(created_item.price) == "42.00",
+            "P15 编辑服务项目改价成功",
+        )
+
+        toggle_item = admin_client.post("/manage/service-items/", {"action": "toggle", "item_id": created_item.pk})
+        created_item.refresh_from_db()
+        check(
+            toggle_item.status_code == 302 and created_item.is_active is False,
+            "P15 下架服务项目成功",
+        )
+    else:
+        seeded = ServiceItem.objects.filter(is_active=True).count()
+        check(seeded >= 1, "P15 真库价目表有在售项目", "共 %d 个" % seeded)
+
+    # ---------------------------------------------------------------- P16 增值服务登记与记录
+    register_page = reception_client.get("/reception/services/")
+    register_body = register_page.content.decode("utf-8")
+    check(register_page.status_code == 200, "P16 前台打开增值服务登记页 200", str(register_page.status_code))
+    check(
+        "给在住客人登记服务" in register_body and "最近登记的消费" in register_body,
+        "P16 渲染登记表单与最近消费",
+    )
+    check(customer_client.get("/reception/services/").status_code == 403, "P16 客户访问登记页得 403")
+    records_page = admin_client.get("/reception/services/records/")
+    check(records_page.status_code == 200, "P16 管理员打开消费记录页 200", str(records_page.status_code))
+
+    if args.mode == "sqlite":
+        # 服务项目先恢复在售，便于登记
+        admin_client.post("/manage/service-items/", {"action": "toggle", "item_id": created_item.pk})
+
+        from django.contrib.auth import get_user_model
+
+        in_house_candidates = list(
+            SvcRecord.objects.filter(actual_checkout_at__isnull=True, reservation__status="checked_in")
+            .select_related("reservation", "reservation__customer")
+            .order_by("id")
+        )
+        # 优先选「客户有登录账号」的记录；离线种子里的在住记录都是散客自动建档，
+        # 这里把其中一条的客户档案挂到 zhangwei 账号上，才能顺带验证客户详情页。
+        login_user = get_user_model().objects.filter(username="zhangwei").first()
+        in_house_record = next(
+            (r for r in in_house_candidates if r.reservation.customer and r.reservation.customer.user_id),
+            in_house_candidates[0] if in_house_candidates else None,
+        )
+        if (
+            in_house_record is not None
+            and login_user is not None
+            and in_house_record.reservation.customer is not None
+            and in_house_record.reservation.customer.user_id is None
+        ):
+            from core.models import Customer as SvcCustomer
+
+            customer_row = in_house_record.reservation.customer
+            SvcCustomer.objects.filter(user_id=login_user.pk).exclude(pk=customer_row.pk).update(user_id=None)
+            customer_row.user_id = login_user.pk
+            customer_row.save(update_fields=["user_id"])
+        check(in_house_record is not None, "P16 离线种子存在在住记录")
+        if in_house_record is not None:
+            before_orders = ServiceOrder.objects.filter(check_in_record_id=in_house_record.pk).count()
+            before_service = SvcRecord.objects.get(pk=in_house_record.pk).service_charge or 0
+
+            posted = reception_client.post(
+                "/reception/services/",
+                {
+                    "record_id": in_house_record.pk,
+                    "item_id": [created_item.pk],
+                    "quantity": ["2"],
+                },
+            )
+            check(posted.status_code == 302, "P16 登记服务成功并跳转", str(posted.status_code))
+
+            orders = ServiceOrder.objects.filter(check_in_record_id=in_house_record.pk)
+            check(orders.count() == before_orders + 1, "P16 消费明细 +1 条")
+            latest = orders.order_by("-id").first()
+            check(
+                latest is not None and latest.quantity == 2 and str(latest.amount) == "84.00",
+                "P16 金额 = 数量 × 单价快照（2 × 42.00 = 84.00）",
+                str(latest.amount) if latest else "无明细",
+            )
+
+            record_after = SvcRecord.objects.get(pk=in_house_record.pk)
+            check(
+                str(record_after.service_charge) == "84.00",
+                "P16 入住记录服务费同步为 84.00",
+                str(record_after.service_charge),
+            )
+            check(
+                str(record_after.total_charge) == str((record_after.room_charge or 0) + record_after.service_charge),
+                "P16 应收合计 = 房费 + 服务费",
+            )
+
+            detail_page = reception_client.get("/reception/services/?record_id=%d" % in_house_record.pk)
+            detail_body = detail_page.content.decode("utf-8")
+            check("测试晚茶" in detail_body, "P16 选中客人后显示已登记服务明细")
+
+            # 客户在「我的预订」详情里能看到这笔消费
+            reservation = in_house_record.reservation
+            check(
+                bool(reservation.customer and reservation.customer.user_id),
+                "P16 选中的在住记录属于有登录账号的客户",
+            )
+            if reservation.customer and reservation.customer.user_id:
+                customer_orders = customer_client.get("/my/reservations/%d/" % reservation.pk)
+                check(
+                    customer_orders.status_code == 200
+                    and "增值服务消费" in customer_orders.content.decode("utf-8"),
+                    "P16 客户详情展示增值服务消费",
+                    str(customer_orders.status_code),
+                )
+
+            # 已退房记录不能再登记
+            closed = SvcRecord.objects.filter(actual_checkout_at__isnull=False).order_by("id").first()
+            if closed is not None:
+                rejected = reception_client.post(
+                    "/reception/services/",
+                    {"record_id": closed.pk, "item_id": [created_item.pk], "quantity": ["1"]},
+                    follow=True,
+                )
+                check(
+                    "已退房" in rejected.content.decode("utf-8"),
+                    "P16 已退房客人不能登记服务",
+                )
+
+            # 未选项目不能提交
+            empty_post = reception_client.post(
+                "/reception/services/", {"record_id": in_house_record.pk}, follow=True
+            )
+            check(
+                "至少选择一项服务" in empty_post.content.decode("utf-8"),
+                "P16 未选择服务项目时给出提示",
+            )
+
+            # 结算页应把已登记服务计入服务费
+            checkout_page = reception_client.get("/reception/checkout/%d/" % in_house_record.pk)
+            checkout_body = checkout_page.content.decode("utf-8")
+            check(
+                "84.00" in checkout_body,
+                "P16 结算页把已登记服务费计入账单",
+            )
+    else:
+        rows = ServiceOrder.objects.count()
+        check(rows >= 0, "P16 真库消费明细表可读", "共 %d 条" % rows)
+
     # ---------------------------------------------------------------- 汇总
     failed = [r for r in results if not r[0]]
     print("\n" + "=" * 72)
