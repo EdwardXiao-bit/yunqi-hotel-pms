@@ -131,7 +131,7 @@
           </form>
           <div class="small text-muted mt-2">
             生效区间是<strong>闭区间</strong>（含起止当天）；区间重叠会被数据库排他约束
-            <code>ex_rate_plan_no_overlap</code> 拒绝（SQLSTATE 23P01）。改价请删旧方案再建新方案。
+            系统会拒绝并提示「该房型在此日期区间已有价格方案」。改价请删旧方案再建新方案。
           </div>
         </div>
       </div>

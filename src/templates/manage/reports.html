@@ -49,8 +49,7 @@
           </div>
         </form>
         <p class="text-muted mb-0 small">
-          当前区间：{{ date_from|date:'Y-m-d' }} ~ {{ date_to|date:'Y-m-d' }}（{{ chart_data.range.from }} ~ {{ chart_data.range.to }}），
-          数据源：{% if chart_data.vendor == 'postgresql' %}真库手写 SQL{% else %}离线 sqlite（等价 Python 聚合，仅用于冒烟）{% endif %}。
+          统计区间：{{ date_from|date:'Y-m-d' }} ~ {{ date_to|date:'Y-m-d' }}（含首尾）。
         </p>
       </div>
     </div>
@@ -79,7 +78,7 @@
   <div class="col-lg-3 col-6">
     <div class="small-box bg-primary">
       <div class="inner">
-        <h3>{{ chart_data.totals.net }}</h3>
+        <h3>{{ chart_data.totals.net|floatformat:2 }}</h3>
         <p>净收入（元，按退房结算日归月）</p>
       </div>
       <div class="icon"><i class="fas fa-coins"></i></div>
@@ -99,7 +98,7 @@
 <div class="row">
   <div class="col-lg-6">
     <div class="card card-outline card-success">
-      <div class="card-header"><h3 class="card-title">① 各房型月度入住率（Q3）</h3></div>
+      <div class="card-header"><h3 class="card-title">① 各房型月度入住率</h3></div>
       <div class="card-body">
         <div id="chart-occupancy" style="width:100%;height:320px;"></div>
         <p class="text-muted small mb-0">
@@ -110,7 +109,7 @@
   </div>
   <div class="col-lg-6">
     <div class="card card-outline card-primary">
-      <div class="card-header"><h3 class="card-title">② 月度净收入（Q4-b）</h3></div>
+      <div class="card-header"><h3 class="card-title">② 月度净收入</h3></div>
       <div class="card-body">
         <div id="chart-revenue" style="width:100%;height:320px;"></div>
         <p class="text-muted small mb-0">
@@ -124,7 +123,7 @@
 <div class="row">
   <div class="col-lg-6">
     <div class="card card-outline card-warning">
-      <div class="card-header"><h3 class="card-title">③ 房型排行（Q5，订单数 / 房夜数）</h3></div>
+      <div class="card-header"><h3 class="card-title">③ 房型排行（订单数 / 房夜数）</h3></div>
       <div class="card-body">
         <div id="chart-top-rooms" style="width:100%;height:320px;"></div>
         <table class="table table-sm table-hover mt-3 mb-0">
@@ -153,7 +152,7 @@
   </div>
   <div class="col-lg-6">
     <div class="card card-outline card-danger">
-      <div class="card-header"><h3 class="card-title">④ 预订来源取消率（Q6-b）</h3></div>
+      <div class="card-header"><h3 class="card-title">④ 预订来源取消率</h3></div>
       <div class="card-body">
         <div id="chart-sources" style="width:100%;height:320px;"></div>
         <table class="table table-sm table-hover mt-3 mb-0">
@@ -186,7 +185,7 @@
   <div class="col-12">
     <div class="card card-outline card-secondary collapsed-card">
       <div class="card-header">
-        <h3 class="card-title">入住率明细（Q3 原始行，报告截图用）</h3>
+        <h3 class="card-title">入住率明细（按房型逐月）</h3>
         <div class="card-tools">
           <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-plus"></i></button>
         </div>
@@ -223,12 +222,34 @@
 <script>
 (function () {
   var data = JSON.parse(document.getElementById('report-data').textContent);
-  var palette = ['#17a2b8', '#28a745', '#007bff', '#ffc107', '#dc3545', '#6c757d'];
+  // 图表配色与 AdminLTE 骨架解耦：一个主色（墨绿蓝）+ 一个数据色 + 中性灰阶，最多四个语义色
+  var ink = '#17414f';
+  var dataHue = '#2f7a92';
+  var neutral = ['#5d7480', '#8aa0aa', '#b7c4cb', '#7d8b6a', '#9a7b5a', '#7c6a8a'];
+  var warn = '#a3242a';
+
+  var textStyle = {
+    fontFamily: '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Segoe UI", sans-serif',
+    color: '#66707a'
+  };
 
   function chart(id) {
     var el = document.getElementById(id);
     if (!el || !window.echarts) { return null; }
     return window.echarts.init(el);
+  }
+
+  function axisBase(extra) {
+    var base = {
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: '#8a939c', fontSize: 12 },
+      splitLine: { show: true, lineStyle: { color: '#eff1f3', width: 1 } }
+    };
+    if (extra) {
+      Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
+    }
+    return base;
   }
 
   // ① 各房型月度入住率（多折线）
@@ -238,18 +259,21 @@
       return {
         name: name,
         type: 'line',
-        smooth: true,
-        symbolSize: 6,
+        smooth: false,
+        symbol: 'circle',
+        symbolSize: 4,
+        lineStyle: { width: 2 },
         data: data.occupancy.series[name],
-        itemStyle: { color: palette[index % palette.length] }
+        itemStyle: { color: index === 0 ? dataHue : neutral[index % neutral.length] }
       };
     });
     occupancy.setOption({
+      textStyle: textStyle,
       tooltip: { trigger: 'axis', valueFormatter: function (v) { return v + '%'; } },
-      legend: { type: 'scroll', top: 0 },
-      grid: { left: 40, right: 16, top: 40, bottom: 30 },
-      xAxis: { type: 'category', data: data.occupancy.months },
-      yAxis: { type: 'value', axisLabel: { formatter: '{value}%' } },
+      legend: { type: 'scroll', top: 0, icon: 'circle', itemWidth: 8, itemHeight: 8 },
+      grid: { left: 44, right: 16, top: 44, bottom: 28 },
+      xAxis: axisBase({ type: 'category', data: data.occupancy.months, splitLine: { show: false } }),
+      yAxis: axisBase({ type: 'value', axisLabel: { formatter: '{value}%', color: '#8a939c', fontSize: 12 } }),
       series: series
     });
   }
@@ -259,15 +283,16 @@
   if (revenue) {
     var months = data.revenue.rows.map(function (row) { return row.month; });
     revenue.setOption({
+      textStyle: textStyle,
       tooltip: { trigger: 'axis' },
-      legend: { top: 0 },
-      grid: { left: 60, right: 16, top: 40, bottom: 30 },
-      xAxis: { type: 'category', data: months },
-      yAxis: { type: 'value', axisLabel: { formatter: '{value} 元' } },
+      legend: { top: 0, icon: 'circle', itemWidth: 8, itemHeight: 8 },
+      grid: { left: 68, right: 16, top: 44, bottom: 28 },
+      xAxis: axisBase({ type: 'category', data: months, splitLine: { show: false } }),
+      yAxis: axisBase({ type: 'value', axisLabel: { formatter: '{value} 元', color: '#8a939c', fontSize: 12 } }),
       series: [
-        { name: '净收入', type: 'bar', data: data.revenue.rows.map(function (r) { return r.net; }), itemStyle: { color: '#007bff' } },
-        { name: '收入', type: 'line', smooth: true, data: data.revenue.rows.map(function (r) { return r.income; }), itemStyle: { color: '#28a745' } },
-        { name: '退款', type: 'line', smooth: true, data: data.revenue.rows.map(function (r) { return r.refund; }), itemStyle: { color: '#dc3545' } }
+        { name: '净收入', type: 'bar', barMaxWidth: 28, data: data.revenue.rows.map(function (r) { return r.net; }), itemStyle: { color: ink } },
+        { name: '收入', type: 'line', smooth: false, symbol: 'circle', symbolSize: 4, lineStyle: { width: 2 }, data: data.revenue.rows.map(function (r) { return r.income; }), itemStyle: { color: dataHue } },
+        { name: '退款', type: 'line', smooth: false, symbol: 'circle', symbolSize: 4, lineStyle: { width: 2 }, data: data.revenue.rows.map(function (r) { return r.refund; }), itemStyle: { color: warn } }
       ]
     });
   }
@@ -277,22 +302,24 @@
   if (topRooms) {
     var names = data.top_rooms.map(function (row) { return row.room_type; });
     topRooms.setOption({
+      textStyle: textStyle,
       tooltip: { trigger: 'axis' },
-      legend: { top: 0 },
-      grid: { left: 100, right: 24, top: 40, bottom: 20 },
-      xAxis: { type: 'value' },
-      yAxis: { type: 'category', data: names },
+      legend: { top: 0, icon: 'circle', itemWidth: 8, itemHeight: 8 },
+      grid: { left: 104, right: 24, top: 44, bottom: 20 },
+      xAxis: axisBase({ type: 'value' }),
+      yAxis: axisBase({ type: 'category', data: names, splitLine: { show: false } }),
       series: [
-        { name: '订单数', type: 'bar', data: data.top_rooms.map(function (r) { return r.orders; }), itemStyle: { color: '#ffc107' } },
-        { name: '房夜数', type: 'bar', data: data.top_rooms.map(function (r) { return r.nights; }), itemStyle: { color: '#17a2b8' } }
+        { name: '订单数', type: 'bar', barMaxWidth: 16, data: data.top_rooms.map(function (r) { return r.orders; }), itemStyle: { color: ink } },
+        { name: '房夜数', type: 'bar', barMaxWidth: 16, data: data.top_rooms.map(function (r) { return r.nights; }), itemStyle: { color: dataHue } }
       ]
     });
   }
 
-  // ④ 来源取消率（饼：各来源订单数占比 + 取消数提示）
+  // ④ 来源取消率（环形：各来源订单数占比 + 取消数提示）
   var sources = chart('chart-sources');
   if (sources) {
     sources.setOption({
+      textStyle: textStyle,
       tooltip: {
         trigger: 'item',
         formatter: function (p) {
@@ -300,15 +327,16 @@
           return row.label + '<br/>订单 ' + row.total + ' 单 · 取消 ' + row.cancelled + ' 单<br/>取消率 ' + row.cancel_rate + '%';
         }
       },
-      legend: { bottom: 0 },
+      legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8 },
       series: [{
         name: '预订来源',
         type: 'pie',
-        radius: ['40%', '68%'],
-        avoidLabelOverlap: true,
-        label: { formatter: '{b}\n{c} 单' },
+        radius: ['46%', '70%'],
+        itemStyle: { borderColor: '#ffffff', borderWidth: 2 },
+        label: { color: '#66707a', fontSize: 12, formatter: '{b} {d}%' },
+        labelLine: { lineStyle: { color: '#c2cbd1' } },
         data: data.sources.map(function (row, index) {
-          return { value: row.total, name: row.label, itemStyle: { color: palette[index % palette.length] } };
+          return { value: row.total, name: row.label, itemStyle: { color: index === 0 ? ink : neutral[index % neutral.length] } };
         })
       }]
     });

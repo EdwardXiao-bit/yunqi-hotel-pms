@@ -9,7 +9,7 @@
     <div class="card card-primary card-outline">
       <div class="card-header">
         <h3 class="card-title"><i class="fas fa-search mr-1"></i>查询条件</h3>
-        <div class="card-tools small text-muted">F03 · P02</div>
+        <div class="card-tools">按日期查询可售房间</div>
       </div>
       <form method="get" action="{% url 'core:available_rooms' %}">
         <div class="card-body">
@@ -131,7 +131,7 @@
       <div class="card card-outline card-primary">
         <div class="card-header">
           <h3 class="card-title"><i class="fas fa-list mr-1"></i>房间明细</h3>
-          <div class="card-tools small text-muted">点“预订”带着房号与日期进入 P03</div>
+          <div class="card-tools small text-muted">选择一间房，按提示填写入住信息即可提交预订</div>
         </div>
         <div class="card-body p-0">
           {% if rows %}

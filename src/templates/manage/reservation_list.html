@@ -9,7 +9,7 @@
   <div class="col-12">
     <div class="card card-outline card-primary">
       <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-filter mr-1"></i>筛选（管理员只读视角）</h3>
+        <h3 class="card-title"><i class="fas fa-filter mr-1"></i>筛选</h3>
         <div class="card-tools">
           <a class="btn btn-sm btn-success"
              href="{% url 'core:reservation_export' %}{% if querystring %}?{{ querystring }}{% endif %}">
@@ -69,7 +69,7 @@
     <div class="card card-outline card-secondary">
       <div class="card-header">
         <h3 class="card-title">预订列表（第 {{ page.number }} / {{ paginator.num_pages }} 页）</h3>
-        <div class="card-tools text-muted small pt-2">只读页面：改状态请到「预订管理」（P06）</div>
+        <div class="card-tools text-muted small pt-2">如需变更状态，请到「预订管理」</div>
       </div>
       <div class="card-body table-responsive p-0">
         <table class="table table-sm table-hover mb-0">

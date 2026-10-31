@@ -36,7 +36,7 @@
     <div class="card card-outline card-primary">
       <div class="card-header">
         <h3 class="card-title"><i class="fas fa-database mr-1"></i>数据概览（13 张表）</h3>
-        <div class="card-tools small text-muted">按 sql/01_schema.sql 的表顺序展示主要业务表</div>
+        <div class="card-tools">13 张业务表</div>
       </div>
       <div class="card-body p-0">
         <table class="table table-hover table-sm mb-0">
@@ -52,8 +52,7 @@
         </table>
       </div>
       <div class="card-footer small text-muted">
-        房态分布：正常 {{ occupancy.available }} / 共 {{ occupancy.total }} 间。
-        完整报表（F09，P11）在 T12 接入 ECharts 四张图。
+        当前房态：正常 {{ occupancy.available }} / 共 {{ occupancy.total }} 间；经营数据在「统计报表」页。
       </div>
     </div>
   </div>
@@ -66,25 +65,40 @@
       <div class="card-body">
         <table class="table table-sm mb-0">
           <tbody>
-            <tr><th class="w-50">数据库</th><td><code>{{ db_info.name }}</code></td></tr>
-            <tr><th>连接账号</th><td><code>{{ db_info.user }}</code></td></tr>
+            <tr><th class="w-50">数据库</th><td class="text-monospace">{{ db_info.name }}</td></tr>
             <tr><th>服务端版本</th><td class="small">{{ db_info.version }}</td></tr>
-            <tr><th>Django</th><td class="small">6.1（模型 <code>managed = False</code>，结构与约束由 sql/ 脚本维护）</td></tr>
-            <tr><th>角色权限</th><td class="small">customer / receptionist / admin，由 <code>core.decorators.role_required</code> 控制</td></tr>
+            <tr><th>运行环境</th><td class="small">Django 6.1 + PostgreSQL 18</td></tr>
+            <tr><th>角色</th><td class="small">客户 / 前台工作人员 / 管理员</td></tr>
+            <tr><th>业务表</th><td class="small">13 张（房型、房间、价格方案、预订、逐日房价、入住、支付、房态日志、维修停用、增值服务与消费明细）</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
     <div class="card card-outline card-secondary">
-      <div class="card-header"><h3 class="card-title"><i class="fas fa-list mr-1"></i>T4–T5 已落地</h3></div>
+      <div class="card-header"><h3 class="card-title"><i class="fas fa-compass mr-1"></i>常用操作</h3></div>
       <div class="card-body p-0">
-        <ul class="list-group list-group-flush small">
-          <li class="list-group-item"><i class="fas fa-check text-success mr-1"></i>工程骨架：<code>config/</code> + <code>core/</code> + 模板/静态资源</li>
-          <li class="list-group-item"><i class="fas fa-check text-success mr-1"></i>13 张表模型映射（<code>managed=False</code>，全部外键对得上）</li>
-          <li class="list-group-item"><i class="fas fa-check text-success mr-1"></i>登录 / 登出（P00）+ 三角色首页与权限装饰器</li>
-          <li class="list-group-item"><i class="fas fa-check text-success mr-1"></i>AdminLTE 3.2 骨架：navbar / sidebar / footer / messages / pagination</li>
-          <li class="list-group-item"><i class="fas fa-hourglass-half text-warning mr-1"></i>P02–P13 业务页（T6 起按 <code>docs/页面约定.md</code> 落地）</li>
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{% url 'core:reservation_list' %}">预订总览</a>
+            <span class="small text-muted">全部订单与状态筛选、导出</span>
+          </li>
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{% url 'core:reports' %}">经营统计报表</a>
+            <span class="small text-muted">入住率、营收、房型排行、来源</span>
+          </li>
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{% url 'core:room_type_list' %}">房型与价格</a>
+            <span class="small text-muted">房型维护、节假日价格方案</span>
+          </li>
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{% url 'core:customer_list' %}">客户一览</a>
+            <span class="small text-muted">客户档案与系统账号</span>
+          </li>
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{% url 'core:room_board' %}">房态看板</a>
+            <span class="small text-muted">清洁、维修与停用登记</span>
+          </li>
         </ul>
       </div>
     </div>
