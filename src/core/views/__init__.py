@@ -1,5 +1,6 @@
 """视图包：按页面分区拆文件，`urls.py` 从这里导入。"""
 from .auth import login_view, logout_view
+from .board import room_board
 from .checkin import checkin_new, walkin_checkin
 from .checkout import checkout_detail
 from .errors import page_not_found, permission_denied, server_error
@@ -28,6 +29,7 @@ __all__ = [
     "checkin_new",
     "walkin_checkin",
     "checkout_detail",
+    "room_board",
     "permission_denied",
     "page_not_found",
     "server_error",

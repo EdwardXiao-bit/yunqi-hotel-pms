@@ -684,6 +684,165 @@ def main() -> int:
                 "P08 真库客户访问结算页得 403",
             )
 
+    # ---------------------------------------------------------------- P09 房态看板（F08/F02）
+    from core.models import Room as BoardRoom
+    from core.models import RoomBlock as BoardBlock
+    from core.models import RoomStatusLog
+
+    board_url = "/reception/board/"
+    board_page = reception_client.get(board_url)
+    board_body = board_page.content.decode("utf-8")
+    check(board_page.status_code == 200, "P09 前台打开房态看板 200", str(board_page.status_code))
+    check("房态看板" in board_body and "看板口径" in board_body, "P09 看板渲染标题与口径说明")
+    check("楼层" in board_body and "登记维修 / 停用" in board_body, "P09 看板渲染楼层分组与区间登记表单")
+    check(customer_client.get(board_url).status_code == 403, "客户访问 P09 房态看板得 403")
+    check(admin_client.get(board_url).status_code == 200, "管理员可打开 P09 房态看板")
+
+    if write_checks:
+        today = timezone.localdate()
+        board_room = BoardRoom.objects.filter(room_no="804").first()
+        check(board_room is not None, "P09 前置：演示房 804 存在")
+        log_before = RoomStatusLog.objects.filter(room_id=board_room.pk).count()
+
+        resp = reception_client.post(board_url, {"room_id": board_room.pk, "action": "cleaning"})
+        board_room.refresh_from_db()
+        check(
+            resp.status_code == 302 and board_room.status == "cleaning",
+            "P09 置为清洁中（available → cleaning）",
+            board_room.status,
+        )
+
+        resp = reception_client.post(board_url, {"room_id": board_room.pk, "action": "clean"})
+        board_room.refresh_from_db()
+        check(
+            resp.status_code == 302 and board_room.status == "available",
+            "P09 清洁完成后恢复正常（cleaning → available）",
+            board_room.status,
+        )
+        check(
+            RoomStatusLog.objects.filter(room_id=board_room.pk).count() >= log_before,
+            "P09 房态变更不破坏房态日志表（日志由数据库触发器写入）",
+        )
+
+        block_start = today
+        block_end = today + timedelta(days=3)
+        resp = reception_client.post(
+            board_url,
+            {
+                "room_id": board_room.pk,
+                "action": "block",
+                "block_type": "maintenance",
+                "start_date": block_start.isoformat(),
+                "end_date": block_end.isoformat(),
+                "reason": "冒烟：空调保养",
+            },
+        )
+        board_room.refresh_from_db()
+        block = BoardBlock.objects.filter(room_id=board_room.pk, start_date=block_start).first()
+        check(
+            resp.status_code == 302 and block is not None and board_room.status == "maintenance",
+            "P09 登记维修区间并把房态置为维修中",
+            f"block={block is not None} status={board_room.status}",
+        )
+
+        resp = reception_client.post(
+            board_url,
+            {
+                "room_id": board_room.pk,
+                "action": "block",
+                "block_type": "disabled",
+                "start_date": block_start.isoformat(),
+                "end_date": block_end.isoformat(),
+                "reason": "冒烟：重复区间",
+            },
+            follow=True,
+        )
+        overlap_msg = resp.content.decode("utf-8")
+        check(
+            "已有维修/停用登记" in overlap_msg,
+            "P09 重复登记同一区间被拒绝并给中文提示",
+        )
+
+        conflict_start = today + timedelta(days=10)
+        conflict_end = today + timedelta(days=12)
+        from core.models import Customer as BoardCustomer
+        from core.models import Reservation as BoardReservation
+
+        demo_customer = BoardCustomer.objects.first()
+        BoardReservation.objects.create(
+            reservation_no="R-SMOKE-P09",
+            customer=demo_customer,
+            room=board_room,
+            check_in_date=conflict_start,
+            check_out_date=conflict_end,
+            guest_count=1,
+            price_per_night="488.00",
+            total_amount="976.00",
+            status="confirmed",
+            source="phone",
+        )
+        resp = reception_client.post(
+            board_url,
+            {
+                "room_id": board_room.pk,
+                "action": "block",
+                "block_type": "maintenance",
+                "start_date": conflict_start.isoformat(),
+                "end_date": conflict_end.isoformat(),
+                "reason": "冒烟：与订单冲突",
+            },
+            follow=True,
+        )
+        conflict_body = resp.content.decode("utf-8")
+        check(
+            "有效订单" in conflict_body and "请先处理订单" in conflict_body,
+            "P09 登记区间与有效订单冲突时提示先处理订单",
+        )
+        check(
+            not BoardBlock.objects.filter(room_id=board_room.pk, start_date=conflict_start).exists(),
+            "P09 冲突的维修登记没有落库",
+        )
+
+        resp = reception_client.post(board_url, {"room_id": board_room.pk, "action": "unblock"})
+        board_room.refresh_from_db()
+        block = BoardBlock.objects.filter(room_id=board_room.pk, start_date=block_start).first()
+        check(
+            resp.status_code == 302
+            and board_room.status == "available"
+            and (block is None or block.end_date == today),
+            "P09 结束维修/停用后房态恢复正常且区间截止到当天",
+            f"status={board_room.status} block={block.end_date if block else None}",
+        )
+
+        resp = reception_client.post(
+            board_url,
+            {
+                "room_id": board_room.pk,
+                "action": "block",
+                "block_type": "maintenance",
+                "start_date": (today + timedelta(days=20)).isoformat(),
+                "end_date": (today + timedelta(days=18)).isoformat(),
+            },
+            follow=True,
+        )
+        check(
+            "结束日期必须晚于开始日期" in resp.content.decode("utf-8"),
+            "P09 反向区间被拒绝并给中文提示",
+        )
+    else:
+        check("房态看板" in board_body, "P09 真库看板页渲染标题")
+        check(
+            RoomStatusLog.objects.filter(reason__isnull=False).exists(),
+            "P09 真库房态日志有记录（数据库触发器生效）",
+        )
+        any_block = BoardBlock.objects.filter(end_date__gte=timezone.localdate()).first()
+        if any_block is not None:
+            check(
+                any_block.get_block_type_display() in board_body,
+                "P09 真库看板展示维修/停用区间",
+                any_block.get_block_type_display(),
+            )
+
     # ---------------------------------------------------------------- 汇总
     failed = [r for r in results if not r[0]]
     print("\n" + "=" * 72)
@@ -800,6 +959,8 @@ def _build_sqlite_schema_and_seed() -> None:
     room = Room.objects.create(room_type=room_type, room_no="801", floor=8, orientation="south", status="available")
     room2 = Room.objects.create(room_type=room_type, room_no="802", floor=8, orientation="south", status="cleaning")
     room3 = Room.objects.create(room_type=room_type, room_no="803", floor=8, orientation="south", status="available")
+    # 房态看板（P09）专用：不参与订单流程，专门给房态动作断言用
+    Room.objects.create(room_type=room_type, room_no="804", floor=8, orientation="north", status="available")
 
     today = timezone.localdate()
     Reservation.objects.create(
