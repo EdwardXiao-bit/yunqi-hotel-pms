@@ -32,6 +32,8 @@ STAGE_TASKS: dict[str, list[str]] = {
     "3": ["T4", "T5", "T6", "T7"],
     "4": ["T8", "T9", "T10"],
     "5": ["T11", "T12", "T13"],
+    "6": ["T15", "T16"],   # 报告与演示（T15 报告、T16 PPT/彩排）
+    "7": ["T17"],           # 现场检查
 }
 # 阶段 0/1/2 目前没有独立的 T 行（阶段 0 是定案、阶段 1 是数据库脚本、阶段 2 是提交材料），单独给完成判据
 STAGE_FREE = {
@@ -93,12 +95,23 @@ def parse_task_table(text: str) -> dict[str, str]:
     """
     tasks: dict[str, str] = {}
     for line in text.splitlines():
-        m = re.match(r"^\|\s*(T\d+)[^|]*\|([^|]*)\|", line)
+        m = re.match(r"^\|\s*(T\d+)([^|]*)\|([^|]*)\|", line)
         if not m:
             continue
-        cell = m.group(2).strip()
-        if "✅" in cell or "🟡" in cell or "未开始" in cell:
-            tasks[m.group(1)] = cell
+        first = m.group(1)
+        tail = m.group(2)
+        cell = m.group(3).strip()
+        if not ("✅" in cell or "🟡" in cell or "未开始" in cell):
+            continue
+        ids = [first]
+        # 合并行形如「T15–T17」：把区间展开成单个任务号
+        span = re.search(r"[–\-]\s*T(\d+)", tail)
+        if span:
+            start, end = int(first[1:]), int(span.group(1))
+            if 0 < end - start <= 10:
+                ids = [f"T{n}" for n in range(start, end + 1)]
+        for tid in ids:
+            tasks[tid] = cell
     return tasks
 
 
