@@ -1,123 +1,175 @@
 {% extends 'base.html' %}
 {% block title %}预订详情 {{ reservation.reservation_no }} · 云栖酒店{% endblock %}
 {% block page_title %}预订详情{% endblock %}
+{% block page_subtitle %}{{ reservation.reservation_no }} · {{ reservation.check_in_date|date:'Y-m-d' }} 入住 → {{ reservation.check_out_date|date:'Y-m-d' }} 离店 · {{ reservation.room.room_no }} 房{% endblock %}
 {% block breadcrumb_current %}客户服务 / 我的预订 / 详情{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'core:my_reservations' %}" class="btn btn-outline-secondary btn-sm">
+  <i class="fas fa-list mr-1"></i>返回我的预订
+</a>
+{% if can_cancel %}
+  <form method="post" action="{% url 'core:my_reservation_cancel' reservation.pk %}" class="d-inline"
+        data-confirm="确定取消这张预订吗？取消后占用日期立即释放，需重新下单。">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-outline-danger btn-sm">
+      <i class="fas fa-times mr-1"></i>取消预订
+    </button>
+  </form>
+{% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="row">
+  <div class="col-6 col-lg-4 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-file-invoice-dollar' value=reservation.total_amount|floatformat:2 unit='元' label='预订金额' hint='价格快照，不随调价变化' tone='success' %}
+  </div>
+  <div class="col-6 col-lg-4 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-tag' value=reservation.price_per_night|floatformat:2 unit='元' label='每晚均价' hint='区间合计 ÷ 房晚数' tone='gold' %}
+  </div>
+  <div class="col-12 col-lg-4 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-moon' value=reservation.nights unit='晚' label='住宿时长' hint='按订单日期区间计算' tone='info' %}
+  </div>
+</div>
+
+<div class="row">
   <div class="col-lg-8">
-    <div class="card card-primary card-outline">
-      <div class="card-header">
-        <h3 class="card-title">
-          <i class="fas fa-file-invoice mr-1"></i>{{ reservation.reservation_no }}
-          <span class="ml-2 badge
-            {% if reservation.status == 'pending' %}badge-warning
-            {% elif reservation.status == 'confirmed' %}badge-info
-            {% elif reservation.status == 'checked_in' %}badge-success
-            {% elif reservation.status == 'checked_out' %}badge-secondary
-            {% elif reservation.status == 'cancelled' %}badge-dark
-            {% else %}badge-danger{% endif %}">{{ status_label }}</span>
-        </h3>
-        <div class="card-tools">
-          <a href="{% url 'core:my_reservations' %}" class="btn btn-tool" title="返回列表"><i class="fas fa-list"></i></a>
-        </div>
+    <div class="yq-card">
+      <div class="yq-card-head">
+        <h2 class="yq-card-title">
+          <i class="fas fa-file-invoice"></i>订单信息
+          <span class="yq-chip
+            {% if reservation.status == 'pending' %}is-warning
+            {% elif reservation.status == 'confirmed' %}is-info
+            {% elif reservation.status == 'checked_in' %}is-success
+            {% elif reservation.status == 'checked_out' %}is-neutral
+            {% elif reservation.status == 'cancelled' %}is-neutral
+            {% else %}is-danger{% endif %}">{{ status_label }}</span>
+        </h2>
+        <div class="yq-hint text-monospace">{{ reservation.reservation_no }}</div>
       </div>
-      <div class="card-body">
+      <div class="yq-card-body">
         <div class="row">
           <div class="col-md-6">
             <dl class="row mb-0 small">
-              <dt class="col-sm-4">房号</dt><dd class="col-sm-8 text-monospace">{{ reservation.room.room_no }}</dd>
-              <dt class="col-sm-4">房型</dt>
-              <dd class="col-sm-8">{{ reservation.room.room_type.name }}（{{ reservation.room.room_type.capacity }} 人）</dd>
-              <dt class="col-sm-4">入住日期</dt><dd class="col-sm-8">{{ reservation.check_in_date|date:'Y-m-d' }}</dd>
-              <dt class="col-sm-4">离店日期</dt><dd class="col-sm-8">{{ reservation.check_out_date|date:'Y-m-d' }}</dd>
-              <dt class="col-sm-4">房晚</dt><dd class="col-sm-8">{{ reservation.nights }} 晚</dd>
+              <dt class="col-sm-4 yq-muted">房号</dt>
+              <dd class="col-sm-8 text-monospace">{{ reservation.room.room_no }}</dd>
+              <dt class="col-sm-4 yq-muted">房型</dt>
+              <dd class="col-sm-8">{{ reservation.room.room_type.name }}（{{ reservation.room.room_type.capacity }} 人 · {{ reservation.room.floor }} 层）</dd>
+              <dt class="col-sm-4 yq-muted">入住日期</dt>
+              <dd class="col-sm-8">{{ reservation.check_in_date|date:'Y-m-d' }}</dd>
+              <dt class="col-sm-4 yq-muted">离店日期</dt>
+              <dd class="col-sm-8">{{ reservation.check_out_date|date:'Y-m-d' }}</dd>
+              <dt class="col-sm-4 yq-muted">房晚</dt>
+              <dd class="col-sm-8">{{ reservation.nights }} 晚</dd>
             </dl>
           </div>
           <div class="col-md-6">
             <dl class="row mb-0 small">
-              <dt class="col-sm-5">入住人数</dt><dd class="col-sm-7">{{ reservation.guest_count }} 人</dd>
-              <dt class="col-sm-5">客户</dt><dd class="col-sm-7">{{ reservation.customer.name }}（{{ reservation.customer.phone }}）</dd>
-              <dt class="col-sm-5">每晚均价</dt><dd class="col-sm-7 text-right text-monospace">{{ reservation.price_per_night|floatformat:2 }} 元</dd>
-              <dt class="col-sm-5">预订金额</dt><dd class="col-sm-7 text-right text-monospace"><strong>{{ reservation.total_amount|floatformat:2 }} 元</strong></dd>
-              <dt class="col-sm-5">来源 / 下单</dt>
+              <dt class="col-sm-5 yq-muted">入住人数</dt>
+              <dd class="col-sm-7">{{ reservation.guest_count }} 人</dd>
+              <dt class="col-sm-5 yq-muted">客户</dt>
+              <dd class="col-sm-7">{{ reservation.customer.name }}（<span class="text-monospace">{{ reservation.customer.phone }}</span>）</dd>
+              <dt class="col-sm-5 yq-muted">每晚均价</dt>
+              <dd class="col-sm-7 text-right text-monospace">{{ reservation.price_per_night|floatformat:2 }} 元</dd>
+              <dt class="col-sm-5 yq-muted">预订金额</dt>
+              <dd class="col-sm-7 text-right text-monospace"><strong>{{ reservation.total_amount|floatformat:2 }} 元</strong></dd>
+              <dt class="col-sm-5 yq-muted">来源 / 下单</dt>
               <dd class="col-sm-7">
-                {% if reservation.source == 'online' %}在线{% elif reservation.source == 'phone' %}电话{% else %}前台{% endif %}
+                {% if reservation.source == 'online' %}在线
+                {% elif reservation.source == 'phone' %}电话
+                {% else %}前台{% endif %}
                 · {{ reservation.created_at|date:'Y-m-d H:i' }}
               </dd>
             </dl>
           </div>
         </div>
         {% if reservation.remark %}
-          <div class="callout callout-info py-2 mt-3 mb-0 small">
-            <i class="fas fa-comment-alt mr-1"></i>备注：{{ reservation.remark }}
+          <div class="alert alert-light border mb-0 mt-3 small">
+            <i class="fas fa-comment-alt yq-muted mr-1"></i>备注：{{ reservation.remark }}
           </div>
         {% endif %}
       </div>
-      <div class="card-footer">
-        {% if can_cancel %}
-          <form method="post" action="{% url 'core:my_reservation_cancel' reservation.pk %}" class="d-inline"
-                data-confirm="确定取消这张预订吗？取消后占用日期立即释放，需重新下单。">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-danger">
-              <i class="fas fa-times mr-1"></i>取消预订
-            </button>
-          </form>
-        {% endif %}
-        <a href="{% url 'core:my_reservations' %}" class="btn btn-default">返回我的预订</a>
-      </div>
+      {% if can_cancel %}
+        <div class="yq-card-foot d-flex align-items-center flex-wrap">
+          <span class="yq-chip is-warning"><i class="fas fa-clock"></i>待确认 / 已确认可取消</span>
+          <span class="yq-hint ml-auto">取消后占用日期立即释放，已支付款项按前台规则处理</span>
+        </div>
+      {% endif %}
     </div>
 
-    <div class="card card-outline card-secondary">
-      <div class="card-header"><h3 class="card-title"><i class="fas fa-calendar-day mr-1"></i>逐日成交价格</h3></div>
-      <div class="card-body p-0">
+    <div class="yq-card">
+      <div class="yq-card-head">
+        <h2 class="yq-card-title"><i class="fas fa-calendar-day"></i>逐日成交价格</h2>
+        <div class="yq-hint">由触发器按价格方案逐晚生成，确认后不变</div>
+      </div>
+      <div class="yq-card-body is-tight">
         {% if daily_prices %}
-          <table class="table table-sm mb-0">
-            <thead><tr><th>住宿日期</th><th class="text-right">当日晚价（元）</th></tr></thead>
-            <tbody>
-              {% for price in daily_prices %}
+          <div class="table-wrap">
+            <table class="table table-sm table-hover">
+              <thead>
                 <tr>
-                  <td>{{ price.stay_date|date:'Y-m-d' }}</td>
-                  <td class="text-right text-monospace">{{ price.price|floatformat:2 }}</td>
+                  <th>住宿日期</th>
+                  <th class="text-right">当日晚价（元）</th>
+                  <th class="text-right">较均价</th>
                 </tr>
-              {% endfor %}
-            </tbody>
-            <tfoot>
-              <tr>
-                <th>合计 {{ daily_prices|length }} 晚</th>
-                <th class="text-right text-monospace">{{ reservation.total_amount|floatformat:2 }}</th>
-              </tr>
-            </tfoot>
-          </table>
-        {% else %}
-          <div class="p-3 text-muted small">
-            暂无逐日价格明细（由数据库触发器 <code>fn_sync_reservation_prices()</code> 在预订写入后生成）。
+              </thead>
+              <tbody>
+                {% for price in daily_prices %}
+                  <tr>
+                    <td>{{ price.stay_date|date:'Y-m-d' }}</td>
+                    <td class="text-right text-monospace">{{ price.price|floatformat:2 }}</td>
+                    <td class="text-right yq-muted small">
+                      {% if price.price > reservation.price_per_night %}<i class="fas fa-arrow-up mr-1"></i>高于均价
+                      {% elif price.price == reservation.price_per_night %}与均价持平
+                      {% else %}<i class="fas fa-arrow-down mr-1"></i>低于均价{% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <th>区间合计 {{ daily_prices|length }} 晚</th>
+                  <th class="text-right text-monospace">{{ reservation.total_amount|floatformat:2 }}</th>
+                  <th class="text-right yq-muted small">按房晚汇总</th>
+                </tr>
+              </tfoot>
+            </table>
           </div>
+        {% else %}
+          {% include 'partials/empty_state.html' with icon='far fa-folder-open' title='暂无逐日价格明细' hint='由数据库触发器 fn_sync_reservation_prices() 在预订写入后生成。' %}
         {% endif %}
       </div>
     </div>
   </div>
 
   <div class="col-lg-4">
-    <div class="card card-outline card-secondary">
-      <div class="card-header"><h3 class="card-title"><i class="fas fa-door-open mr-1"></i>入住与结算</h3></div>
-      <div class="card-body small">
+    <div class="yq-card">
+      <div class="yq-card-head">
+        <h2 class="yq-card-title"><i class="fas fa-door-open"></i>入住与结算</h2>
+      </div>
+      <div class="yq-card-body">
         {% if check_in_record %}
-          <dl class="row mb-0">
-            <dt class="col-sm-5">入住时间</dt><dd class="col-sm-7">{{ check_in_record.check_in_at|date:'Y-m-d H:i' }}</dd>
-            <dt class="col-sm-5">退房时间</dt>
+          <dl class="row mb-0 small">
+            <dt class="col-sm-5 yq-muted">入住时间</dt>
+            <dd class="col-sm-7">{{ check_in_record.check_in_at|date:'Y-m-d H:i' }}</dd>
+            <dt class="col-sm-5 yq-muted">退房时间</dt>
             <dd class="col-sm-7">{{ check_in_record.actual_checkout_at|date:'Y-m-d H:i'|default:'在住' }}</dd>
-            <dt class="col-sm-5">押金</dt><dd class="col-sm-7 text-right text-monospace">{{ check_in_record.deposit_amount|floatformat:2 }}</dd>
-            <dt class="col-sm-5">房费</dt><dd class="col-sm-7 text-right text-monospace">{{ check_in_record.room_charge|floatformat:2 }}</dd>
-            <dt class="col-sm-5">服务费</dt><dd class="col-sm-7 text-right text-monospace">{{ check_in_record.service_charge|floatformat:2 }}</dd>
-            <dt class="col-sm-5">应收合计</dt><dd class="col-sm-7 text-right text-monospace"><strong>{{ check_in_record.total_charge|floatformat:2 }}</strong></dd>
+            <dt class="col-sm-5 yq-muted">押金</dt>
+            <dd class="col-sm-7 text-right text-monospace">{{ check_in_record.deposit_amount|floatformat:2 }}</dd>
+            <dt class="col-sm-5 yq-muted">房费</dt>
+            <dd class="col-sm-7 text-right text-monospace">{{ check_in_record.room_charge|floatformat:2 }}</dd>
+            <dt class="col-sm-5 yq-muted">服务费</dt>
+            <dd class="col-sm-7 text-right text-monospace">{{ check_in_record.service_charge|floatformat:2 }}</dd>
+            <dt class="col-sm-5 yq-muted">应收合计</dt>
+            <dd class="col-sm-7 text-right text-monospace"><strong>{{ check_in_record.total_charge|floatformat:2 }}</strong></dd>
           </dl>
           {% if payments %}
-            <hr class="my-2">
-            <p class="mb-1 text-muted">支付流水</p>
-            <ul class="list-unstyled mb-0">
+            <hr class="my-3">
+            <p class="yq-hint mb-2">支付流水</p>
+            <ul class="list-unstyled small mb-0">
               {% for p in payments %}
-                <li class="d-flex justify-content-between">
+                <li class="d-flex justify-content-between mb-1">
                   <span>{{ p.paid_at|date:'m-d' }} · {{ p.get_kind_display }}</span>
                   <span class="text-monospace">{{ p.amount|floatformat:2 }}</span>
                 </li>
@@ -125,20 +177,25 @@
             </ul>
           {% endif %}
         {% else %}
-          <p class="text-muted mb-0">
+          <p class="yq-hint mb-0">
+            <i class="fas fa-info-circle mr-1"></i>
             还没办理入住。到店后由前台用预订号或手机号检索办理，押金与结算在退房时统一处理。
           </p>
         {% endif %}
       </div>
     </div>
 
-    <div class="card card-outline card-secondary">
-      <div class="card-header"><h3 class="card-title"><i class="fas fa-info-circle mr-1"></i>状态说明</h3></div>
-      <div class="card-body small text-muted">
-        <p class="mb-1">待确认 → 已确认：前台核对后确认。</p>
-        <p class="mb-1">已确认 → 入住中：到店办理入住，此时不能再取消。</p>
-        <p class="mb-1">入住中 → 已退房：退房结算完成。</p>
-        <p class="mb-0">已取消 / 未到店都会释放占用日期。</p>
+    <div class="yq-card">
+      <div class="yq-card-head">
+        <h2 class="yq-card-title"><i class="fas fa-info-circle"></i>状态说明</h2>
+      </div>
+      <div class="yq-card-body">
+        <ul class="list-unstyled small mb-0">
+          <li class="mb-2"><span class="yq-chip is-warning">待确认</span> → <span class="yq-chip is-info">已确认</span> 前台核对后确认。</li>
+          <li class="mb-2"><span class="yq-chip is-info">已确认</span> → <span class="yq-chip is-success">入住中</span> 到店办理入住，此时不能再取消。</li>
+          <li class="mb-2"><span class="yq-chip is-success">入住中</span> → <span class="yq-chip is-neutral">已退房</span> 退房结算完成。</li>
+          <li class="mb-0"><span class="yq-chip is-neutral">已取消</span> / <span class="yq-chip is-danger">未到店</span> 都会释放占用日期。</li>
+        </ul>
       </div>
     </div>
   </div>

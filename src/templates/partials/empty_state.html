@@ -1,0 +1,14 @@
+{% comment %}
+空状态：{% include 'partials/empty_state.html' with icon='fas fa-inbox' title='还没有预订' hint='先从可用房查询开始' action_url=url action_label='去查可用房' %}
+参数都可选，title 默认「暂无数据」。
+{% endcomment %}
+<div class="yq-empty">
+  <i class="{{ icon|default:'far fa-folder-open' }}"></i>
+  <div class="yq-empty-title">{{ title|default:'暂无数据' }}</div>
+  {% if hint %}<div class="yq-empty-hint">{{ hint }}</div>{% endif %}
+  {% if action_url %}
+    <a class="btn btn-outline-primary btn-sm mt-3" href="{{ action_url }}">
+      <i class="fas fa-arrow-right mr-1"></i>{{ action_label|default:'去看看' }}
+    </a>
+  {% endif %}
+</div>

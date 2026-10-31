@@ -1,101 +1,152 @@
 {% extends 'base.html' %}
 {% block title %}退房结算 · 云栖酒店{% endblock %}
 {% block page_title %}退房结算{% endblock %}
+{% block page_subtitle %}应收 = 房费 + 加收房费 + 增值服务费；押金只抵减差额，差额为 0 才能退房（多退少补）{% endblock %}
 {% block breadcrumb_current %}前台作业 / 退房结算{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'core:checkin_new' %}" class="btn btn-primary btn-sm">
+  <i class="fas fa-sign-in-alt mr-1"></i>回入住办理
+</a>
+<a href="{% url 'core:room_board' %}" class="btn btn-outline-primary btn-sm">
+  <i class="fas fa-th-large mr-1"></i>房态看板
+</a>
+{% endblock %}
 
 {% block content %}
 <div class="row">
-  <div class="col-lg-5">
-    <div class="card card-primary card-outline">
-      <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-receipt mr-1"></i>账单预览</h3>
-        <div class="card-tools small text-muted">F07 · P08</div>
+  <div class="col-xl-3 col-md-6 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-receipt' value=total_charge|floatformat:2 unit='元' label='应收合计' hint='房费 + 加收 + 服务费' tone='info' %}
+  </div>
+  <div class="col-xl-3 col-md-6 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-check-double' value=settled|floatformat:2 unit='元' label='已收已退' hint='含入住时收取的押金' tone='success' %}
+  </div>
+  <div class="col-xl-3 col-md-6 mb-3">
+    {% if balance > 0 %}
+      {% include 'partials/stat.html' with icon='fas fa-exclamation-circle' value=balance_abs|floatformat:2 unit='元' label='还应收' hint='押金不足，需补收' tone='danger' %}
+    {% elif balance < 0 %}
+      {% include 'partials/stat.html' with icon='fas fa-undo' value=balance_abs|floatformat:2 unit='元' label='还应退' hint='预收超出应收，需退款' tone='warning' %}
+    {% else %}
+      {% include 'partials/stat.html' with icon='fas fa-check-circle' value=0 unit='元' label='已结清' hint='差额为 0，可办理退房' tone='success' %}
+    {% endif %}
+  </div>
+  <div class="col-xl-3 col-md-6 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-moon' value=nights unit='晚' label='计费房晚' hint='按实际入住晚数的逐日成交价' tone='neutral' %}
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-xl-5">
+    <div class="yq-card">
+      <div class="yq-card-head">
+        <h3 class="yq-card-title"><i class="fas fa-receipt"></i>账单预览</h3>
+        {% if balance == 0 %}<span class="yq-chip is-success">已结清</span>
+        {% else %}<span class="yq-chip is-warning">待结清</span>{% endif %}
       </div>
-      <div class="card-body p-0">
-        <table class="table table-sm mb-0">
-          <tbody>
-            <tr><th style="width:7.5rem">订单号</th><td class="text-monospace">{{ reservation.reservation_no }}</td></tr>
-            <tr><th>客人</th><td>{{ record.guest_name }} <span class="text-muted small text-monospace">{{ record.guest_phone }}</span></td></tr>
-            <tr><th>房间</th><td>{{ room.room_no }} <span class="text-muted small">{{ room.room_type.name }}</span></td></tr>
-            <tr><th>入住时间</th><td>{{ record.check_in_at|date:'Y-m-d H:i' }}</td></tr>
-            <tr><th>计划离店</th><td>{{ planned_out|date:'Y-m-d' }}</td></tr>
-            <tr><th>实际退房</th><td>{{ actual_out|date:'Y-m-d' }}（{{ nights }} 房晚）</td></tr>
-          </tbody>
-        </table>
+      <div class="yq-card-body is-tight">
+        <div class="table-wrap">
+          <table class="table table-sm mb-0">
+            <tbody>
+              <tr><th style="width: 7.5rem;">订单号</th><td class="text-monospace">{{ reservation.reservation_no }}</td></tr>
+              <tr><th>客人</th><td>{{ record.guest_name }} <span class="yq-muted small text-monospace">{{ record.guest_phone }}</span></td></tr>
+              <tr><th>房间</th><td><span class="text-monospace">{{ room.room_no }}</span> <span class="yq-muted small">{{ room.room_type.name }}</span></td></tr>
+              <tr><th>入住时间</th><td class="text-monospace">{{ record.check_in_at|date:'Y-m-d H:i' }}</td></tr>
+              <tr><th>计划离店</th><td class="text-monospace">{{ planned_out|date:'Y-m-d' }}</td></tr>
+              <tr><th>实际退房</th><td class="text-monospace">{{ actual_out|date:'Y-m-d' }}（{{ nights }} 房晚）</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
+
       {% if overtime_days %}
-      <div class="card-body pt-2 pb-0">
+      <div class="yq-card-body pt-2 pb-0">
         <div class="alert alert-warning py-2 mb-2 small">
-          <i class="fas fa-clock mr-1"></i>已超过计划离店日期 {{ overtime_days }} 天，如需加收请在下方「加收房费」里录入。
+          <i class="fas fa-clock mr-1"></i>已超过计划离店日期 {{ overtime_days }} 天，如需加收请在右侧「加收房费」里录入。
         </div>
       </div>
       {% elif early_days %}
-      <div class="card-body pt-2 pb-0">
+      <div class="yq-card-body pt-2 pb-0">
         <div class="alert alert-info py-2 mb-2 small">
           <i class="fas fa-info-circle mr-1"></i>提前退房 {{ early_days }} 个房晚：按实际入住晚数计费，剩余房晚自动释放。
         </div>
       </div>
       {% endif %}
-      <div class="card-body p-0 border-top">
-        <table class="table table-sm mb-0">
-          <thead><tr><th>逐日成交价</th><th class="text-right">当日价格</th></tr></thead>
-          <tbody>
-            {% for row in price_rows %}
-            <tr><td>{{ row.stay_date|date:'Y-m-d' }}</td><td class="text-right text-monospace">{{ row.price|floatformat:2 }}</td></tr>
-            {% empty %}
-            <tr><td colspan="2" class="text-muted small">该订单没有逐日价明细，房费按取价规则现算。</td></tr>
-            {% endfor %}
-          </tbody>
-          <tfoot>
-            <tr><th>房费（{{ nights }} 晚）</th><th class="text-right text-monospace">{{ room_charge|floatformat:2 }}</th></tr>
-          </tfoot>
-        </table>
-      </div>
-      <div class="card-body p-0 border-top">
-        <table class="table table-sm mb-0">
-          <thead><tr><th>已登记的增值服务</th><th class="text-right">数量</th><th class="text-right">金额</th></tr></thead>
-          <tbody>
-            {% for order in service_orders %}
-            <tr>
-              <td>{{ order.service_item.name }}</td>
-              <td class="text-right">{{ order.quantity }} {{ order.service_item.unit }}</td>
-              <td class="text-right text-monospace">{{ order.amount|floatformat:2 }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="3" class="text-muted small">还没有服务消费，可在右侧结算表单里追加。</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div class="card-body p-0 border-top">
-        <table class="table table-sm mb-0">
-          <thead><tr><th>款项</th><th>方式</th><th class="text-right">金额</th></tr></thead>
-          <tbody>
-            {% for p in payments %}
-            <tr>
-              <td>{% if p.kind == 'deposit' %}押金{% elif p.kind == 'room_fee' %}房费{% elif p.kind == 'service_fee' %}服务费{% else %}<span class="text-danger">退款</span>{% endif %}</td>
-              <td class="small text-muted">{{ p.get_method_display|default:p.method }}</td>
-              <td class="text-right text-monospace">{% if p.kind == 'refund' %}-{% endif %}{{ p.amount|floatformat:2 }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="3" class="text-muted small">暂无收款记录。</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div class="card-body border-top">
-        <div class="d-flex justify-content-between"><span class="text-muted">房费</span><span class="text-monospace">{{ room_charge|floatformat:2 }}</span></div>
-        <div class="d-flex justify-content-between"><span class="text-muted">增值服务</span><span class="text-monospace">{{ service_charge|floatformat:2 }}</span></div>
-        <div class="d-flex justify-content-between"><span class="text-muted">加收房费</span><span class="text-monospace">{{ extra_room_charge|floatformat:2 }}</span></div>
-        <hr class="my-2">
-        <div class="d-flex justify-content-between font-weight-bold"><span>应收合计</span><span class="text-monospace">{{ total_charge|floatformat:2 }}</span></div>
-        <div class="d-flex justify-content-between"><span class="text-muted">已收已退</span><span class="text-monospace">{{ settled|floatformat:2 }}</span></div>
-        <div class="d-flex justify-content-between font-weight-bold {% if balance > 0 %}text-danger{% elif balance < 0 %}text-warning{% else %}text-success{% endif %}">
-          <span>{% if balance > 0 %}还应收{% elif balance < 0 %}还应退{% else %}已结清{% endif %}</span>
-          <span class="text-monospace">{{ balance|floatformat:2 }}</span>
+
+      <div class="yq-card-body is-tight border-top">
+        <div class="table-wrap">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>逐日成交价</th><th class="text-right">当日价格</th></tr></thead>
+            <tbody>
+              {% for row in price_rows %}
+              <tr><td class="text-monospace">{{ row.stay_date|date:'Y-m-d' }}</td><td class="text-right text-monospace">{{ row.price|floatformat:2 }}</td></tr>
+              {% empty %}
+              <tr><td colspan="2" class="yq-muted small">该订单没有逐日价明细，房费按取价规则现算。</td></tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr><th>房费（{{ nights }} 晚）</th><th class="text-right text-monospace">{{ room_charge|floatformat:2 }}</th></tr>
+            </tfoot>
+          </table>
         </div>
+      </div>
+
+      <div class="yq-card-body is-tight border-top">
+        <div class="table-wrap">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>已登记的增值服务</th><th class="text-right">数量</th><th class="text-right">金额</th></tr></thead>
+            <tbody>
+              {% for order in service_orders %}
+              <tr>
+                <td>{{ order.service_item.name }}</td>
+                <td class="text-right">{{ order.quantity }} {{ order.service_item.unit }}</td>
+                <td class="text-right text-monospace">{{ order.amount|floatformat:2 }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="yq-muted small">还没有服务消费，可在右侧结算表单里追加。</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="yq-card-body is-tight border-top">
+        <div class="table-wrap">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>款项</th><th>方式</th><th class="text-right">金额</th></tr></thead>
+            <tbody>
+              {% for p in payments %}
+              <tr>
+                <td>{% if p.kind == 'deposit' %}押金{% elif p.kind == 'room_fee' %}房费{% elif p.kind == 'service_fee' %}服务费{% else %}<span class="text-danger">退款</span>{% endif %}</td>
+                <td class="small yq-muted">{{ p.get_method_display|default:p.method }}</td>
+                <td class="text-right text-monospace">{% if p.kind == 'refund' %}-{% endif %}{{ p.amount|floatformat:2 }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="yq-muted small">暂无收款记录。</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="yq-card-foot">
+        <table class="table table-sm mb-0 yq-amount-table">
+          <tbody>
+            <tr><td class="yq-muted">房费</td><td class="text-right text-monospace">{{ room_charge|floatformat:2 }}</td></tr>
+            <tr><td class="yq-muted">增值服务</td><td class="text-right text-monospace">{{ service_charge|floatformat:2 }}</td></tr>
+            <tr><td class="yq-muted">加收房费</td><td class="text-right text-monospace">{{ extra_room_charge|floatformat:2 }}</td></tr>
+            <tr class="font-weight-bold border-top"><td>应收合计</td><td class="text-right text-monospace">{{ total_charge|floatformat:2 }}</td></tr>
+            <tr><td class="yq-muted">已收已退 <span class="yq-hint">含押金</span></td><td class="text-right text-monospace">{{ settled|floatformat:2 }}</td></tr>
+            <tr class="font-weight-bold">
+              <td>{% if balance > 0 %}还应收{% elif balance < 0 %}还应退{% else %}已结清{% endif %}</td>
+              <td class="text-right">
+                {% if balance == 0 %}<span class="yq-chip is-success">已结清</span>
+                {% else %}<span class="yq-chip is-warning text-monospace">{{ balance_abs|floatformat:2 }} 元</span>{% endif %}
+              </td>
+            </tr>
+          </tbody>
+        </table>
         {% if balance > 0 %}
-        <div class="alert alert-warning py-2 mt-2 mb-0 small"><i class="fas fa-exclamation-triangle mr-1"></i>押金不足，需补收 {{ balance|floatformat:2 }} 元（E07）。</div>
+        <div class="alert alert-warning py-2 mt-2 mb-0 small"><i class="fas fa-exclamation-triangle mr-1"></i>押金不足，还需补收 {{ balance_abs|floatformat:2 }} 元（E07）。</div>
         {% elif balance < 0 %}
         <div class="alert alert-info py-2 mt-2 mb-0 small"><i class="fas fa-info-circle mr-1"></i>预收超出应收，需退给客人 {{ balance_abs|floatformat:2 }} 元：请添加一条「退款」款项。</div>
         {% endif %}
@@ -103,15 +154,15 @@
     </div>
   </div>
 
-  <div class="col-lg-7">
-    <div class="card card-success card-outline">
-      <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-sign-out-alt mr-1"></i>结算提交</h3>
-        <div class="card-tools small text-muted">差额必须结清才能退房</div>
+  <div class="col-xl-7">
+    <div class="yq-card">
+      <div class="yq-card-head">
+        <h3 class="yq-card-title"><i class="fas fa-sign-out-alt"></i>结算提交</h3>
+        <span class="yq-muted small">差额必须结清才能退房</span>
       </div>
       <form method="post" action="{% url 'core:checkout_detail' record.pk %}">
         {% csrf_token %}
-        <div class="card-body">
+        <div class="yq-card-body">
           {% if error %}
           <div class="alert alert-danger py-2 mb-3"><i class="fas fa-times-circle mr-1"></i>{{ error }}</div>
           {% endif %}
@@ -126,21 +177,25 @@
               <label for="actual_checkout_at">实际退房时间</label>
               <input type="datetime-local" class="form-control" id="actual_checkout_at" name="actual_checkout_at"
                      value="{{ checkout_at_value }}" required>
-              <small class="form-text text-muted">不得早于入住时间 {{ record.check_in_at|date:'Y-m-d H:i' }}</small>
+              <small class="form-text yq-hint">不得早于入住时间 {{ record.check_in_at|date:'Y-m-d H:i' }}</small>
             </div>
             <div class="form-group col-md-6">
               <label for="extra_room_charge">加收房费（元）</label>
               <input type="number" step="0.01" min="0" class="form-control" id="extra_room_charge" name="extra_room_charge"
                      value="{{ posted.extra_room_charge|default:'0' }}">
-              <small class="form-text text-muted">超时退房、损坏赔付等，默认 0</small>
+              <small class="form-text yq-hint">超时退房、损坏赔付等，默认 0</small>
             </div>
           </div>
 
           <hr>
-          <h6 class="text-muted"><i class="fas fa-concierge-bell mr-1"></i>增值服务（可多行，留空表示不登记）</h6>
+          <h6 class="yq-muted"><i class="fas fa-concierge-bell mr-1"></i>增值服务（可多行，留空表示不登记）</h6>
+          <div class="form-row yq-hint mb-1">
+            <div class="col-md-8">服务项目</div>
+            <div class="col-md-4">数量</div>
+          </div>
           {% for i in "xxx" %}
           <div class="form-row align-items-end">
-            <div class="form-group col-md-7 mb-1">
+            <div class="form-group col-md-8 mb-1">
               <select class="form-control form-control-sm" name="service_item_id" aria-label="服务项目">
                 <option value="">— 选择服务项目 —</option>
                 {% for item in service_items %}
@@ -148,24 +203,29 @@
                 {% endfor %}
               </select>
             </div>
-            <div class="form-group col-md-3 mb-1">
+            <div class="form-group col-md-4 mb-1">
               <input type="number" min="0" class="form-control form-control-sm" name="service_quantity" placeholder="数量" aria-label="数量">
             </div>
           </div>
           {% endfor %}
 
           <hr>
-          <h6 class="text-muted"><i class="fas fa-money-bill-wave mr-1"></i>收款 / 退款（差额结清用）</h6>
-          <p class="small text-muted mb-2">押金在办理入住时已记账；这里只登记本次结算新收或退的款，金额需与右侧差额一致。</p>
+          <h6 class="yq-muted"><i class="fas fa-money-bill-wave mr-1"></i>收款 / 退款（差额结清用）</h6>
+          <p class="small yq-muted mb-2">押金在办理入住时已记账；这里只登记本次结算新收或退的款，金额需与左侧差额一致。</p>
+          <div class="form-row yq-hint mb-1">
+            <div class="col-md-4">款项</div>
+            <div class="col-md-4">方式</div>
+            <div class="col-md-4">金额</div>
+          </div>
           {% for i in "xxx" %}
           <div class="form-row align-items-end">
-            <div class="form-group col-md-3 mb-1">
+            <div class="form-group col-md-4 mb-1">
               <select class="form-control form-control-sm" name="payment_kind" aria-label="款项类型">
                 <option value="">— 款项 —</option>
                 {% for value, label in settle_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
               </select>
             </div>
-            <div class="form-group col-md-3 mb-1">
+            <div class="form-group col-md-4 mb-1">
               <select class="form-control form-control-sm" name="payment_method" aria-label="支付方式">
                 <option value="">— 方式 —</option>
                 {% for value, label in methods %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
@@ -177,8 +237,8 @@
           </div>
           {% endfor %}
         </div>
-        <div class="card-footer d-flex align-items-center">
-          <span class="small text-muted mr-auto">提交后退房时间入库、订单置为已退房、房间转「清洁中」。</span>
+        <div class="yq-card-foot d-flex align-items-center flex-wrap">
+          <span class="yq-hint mr-auto">提交后退房时间入库、订单置为已退房、房间转「清洁中」。</span>
           <a href="{% url 'core:checkin_new' %}" class="btn btn-default btn-sm mr-2">返回入住页</a>
           <button type="submit" class="btn btn-success btn-sm"{% if already_checked_out %} disabled{% else %} data-confirm="确认办理退房结算？提交后订单状态不可回退，房间将转为清洁中。"{% endif %}>
             <i class="fas fa-check mr-1"></i>{% if already_checked_out %}已办理退房{% else %}确认退房并结算{% endif %}
@@ -187,14 +247,16 @@
       </form>
     </div>
 
-    <div class="card card-outline card-secondary">
-      <div class="card-header"><h3 class="card-title">结算口径</h3></div>
-      <div class="card-body small text-muted">
-        <ul class="mb-0 pl-3">
-          <li>应收合计 = 房费（按实际入住晚数的逐日成交价）+ 加收房费 + 增值服务费。</li>
-          <li>押金不计营业收入，只抵减差额；差额为 0 才能退房（多退少补，E07）。</li>
-          <li>退款（kind=refund）记为负向金额，等同于把钱退给客人。</li>
-          <li>提前退房按实际房晚计费（至少一房晚），剩余房晚随订单转「已退房」自动释放。</li>
+    <div class="yq-card">
+      <div class="yq-card-head">
+        <h3 class="yq-card-title"><i class="fas fa-info-circle"></i>结算口径</h3>
+      </div>
+      <div class="yq-card-body">
+        <ul class="pl-3 mb-0 small">
+          <li class="mb-1">应收合计 = 房费（按实际入住晚数的逐日成交价）+ 加收房费 + 增值服务费。</li>
+          <li class="mb-1">押金不计营业收入，只抵减差额；差额为 0 才能退房（多退少补，E07）。</li>
+          <li class="mb-1">退款（kind=refund）记为负向金额，等同于把钱退给客人。</li>
+          <li class="mb-1">提前退房按实际房晚计费（至少一房晚），剩余房晚随订单转「已退房」自动释放。</li>
           <li>退房后房间转「清洁中」，清洁完成请到房态看板标记回「正常」。</li>
         </ul>
       </div>

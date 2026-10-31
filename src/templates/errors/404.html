@@ -1,16 +1,89 @@
 {% extends 'base.html' %}
 {% block title %}404 页面不存在 · 云栖酒店{% endblock %}
 {% block page_title %}404 · 页面不存在{% endblock %}
+{% block page_subtitle %}链接可能已失效，或地址拼写有误{% endblock %}
 {% block breadcrumb_current %}未找到{% endblock %}
+
+{% block page_actions %}
+{% if user.role == 'receptionist' %}
+<a href="{% url 'core:reception_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-concierge-bell mr-1"></i>前台工作台</a>
+{% elif user.role == 'admin' %}
+<a href="{% url 'core:manage_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-user-cog mr-1"></i>管理工作台</a>
+{% elif user.role == 'customer' %}
+<a href="{% url 'core:customer_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-home mr-1"></i>我的首页</a>
+{% else %}
+<a href="{% url 'core:login' %}" class="btn btn-primary btn-sm"><i class="fas fa-sign-in-alt mr-1"></i>去登录</a>
+{% endif %}
+{% endblock %}
+
 {% block content %}
-<div class="error-page">
-  <h2 class="headline text-info">404</h2>
-  <div class="error-content">
-    <h3><i class="fas fa-search text-info mr-1"></i>没有找到你要访问的页面</h3>
-    <p>URL 可能拼错了，或者该页面属于还没实现的里程碑（T6 起的业务页）。</p>
-    <p class="mb-0">
-      <a href="{% url 'core:customer_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-home mr-1"></i>返回首页</a>
-    </p>
+<div class="row">
+  <div class="col-lg-8">
+    <div class="yq-card">
+      <div class="yq-card-head">
+        <h2 class="yq-card-title"><i class="fas fa-map-signs"></i>没有找到这个页面</h2>
+        <div class="yq-hint">404 Not Found</div>
+      </div>
+      <div class="yq-card-body">
+        <div class="d-flex align-items-start mb-3">
+          <div class="display-4 text-monospace text-info mr-3" style="line-height: 1">404</div>
+          <div>
+            <h3 class="h5 mb-2">你要访问的页面不存在</h3>
+            <p class="yq-muted mb-0">
+              URL 可能拼错了，或者这个地址已随页面调整而失效。
+              可以从下面的常用入口重新进入，或回到首页再操作一次。
+            </p>
+          </div>
+        </div>
+        <div class="alert alert-light border mb-0 small">
+          <i class="fas fa-lightbulb yq-muted mr-1"></i>
+          如果是从站内链接点进来的，请把当前地址与上一页告诉值班同学，便于排查失效链接。
+        </div>
+      </div>
+      <div class="yq-card-foot d-flex flex-wrap">
+        {% if user.role == 'receptionist' %}
+        <a href="{% url 'core:reception_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-concierge-bell mr-1"></i>前台工作台</a>
+        {% elif user.role == 'admin' %}
+        <a href="{% url 'core:manage_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-user-cog mr-1"></i>管理工作台</a>
+        {% elif user.role == 'customer' %}
+        <a href="{% url 'core:customer_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-home mr-1"></i>我的首页</a>
+        {% else %}
+        <a href="{% url 'core:login' %}" class="btn btn-primary btn-sm"><i class="fas fa-sign-in-alt mr-1"></i>去登录</a>
+        {% endif %}
+        <a href="{% url 'core:login' %}" class="btn btn-outline-secondary btn-sm ml-2">重新登录</a>
+      </div>
+    </div>
+
+    <div class="yq-card">
+      <div class="yq-card-head">
+        <h2 class="yq-card-title"><i class="fas fa-th-large"></i>常用入口</h2>
+      </div>
+      <div class="yq-card-body">
+        {% if user.role == 'receptionist' or user.role == 'admin' %}
+          <p class="yq-hint mb-0">
+            当前账号是员工账号，客户区入口不可用；请从前台 / 管理工作台或左侧导航继续操作。
+          </p>
+        {% else %}
+        <div class="row">
+          <div class="col-sm-4 mb-3 mb-sm-0">
+            <a href="{% url 'core:available_rooms' %}" class="btn btn-outline-primary btn-sm btn-block">
+              <i class="fas fa-door-open mr-1"></i>可用房查询
+            </a>
+          </div>
+          <div class="col-sm-4 mb-3 mb-sm-0">
+            <a href="{% url 'core:my_reservations' %}" class="btn btn-outline-primary btn-sm btn-block">
+              <i class="fas fa-list-alt mr-1"></i>我的预订
+            </a>
+          </div>
+          <div class="col-sm-4">
+            <a href="{% url 'core:customer_home' %}" class="btn btn-outline-primary btn-sm btn-block">
+              <i class="fas fa-user mr-1"></i>客户首页
+            </a>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

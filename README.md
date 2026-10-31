@@ -123,6 +123,7 @@ yunqi-hotel-pms/
 │  ├─ 02-数据库设计.md          ER 关系、13 表结构、约束清单、索引、触发器与视图、数据样例
 │  ├─ 03-实施计划.md            里程碑、WBS、风险、测试验收
 │  ├─ 05-查询结果与测试记录.md    Q1–Q8 实测结果（报告第 4 章素材）
+│  ├─ 06-系统收尾核对.md          落地矩阵 / 验证清单与实测 / 演示动线 / 已知限制（2026-10-31）
 │  ├─ 页面约定.md               14 个业务页 + 3 个错误页的 URL/模板/表单字段契约
 │  └─ 2026学年…docx             教师下发原件（只读）
 ├─ deliverables/                对外交付件（第一次提交）
@@ -172,6 +173,8 @@ python tools/smoke_web.py --mode real
 - [x] **F01 房型与价格维护 + P13 客户与账号一览**（P10 `/manage/room-types/`、`/manage/room-types/new/`、`/manage/room-types/<pk>/edit/`、P13 `/manage/customers/`，2026-10-31）：房型增改停删（床型六选项、容量 1–8、标准价与面积校验）；价格方案按**闭区间** `[]` 维护，重叠既被应用层预检查拦下、也被数据库 `ex_rate_plan_no_overlap`（EXCLUDE，SQLSTATE 23P01）兜底，提示统一为「该房型在此日期区间已有价格方案」；有房间或方案引用的房型不能删除（RESTRICT），只能停用；P13 客户与账号一览只读，支持姓名/手机/账号搜索与分页，并可直接跳到该客户的预订列表。冒烟扩到 sqlite 169 项 / 真库只读 111 项，`work/check_f01_real.py` 真库事务内核对 22 项后回滚
 - [x] **F09 经营统计报表 + P12 预订总览**（P11/P12，2026-10-31）：4 张 ECharts 图（入住率趋势 / 月度净收入 / 房型排行 / 来源取消率）口径与 `sql/04_queries.sql` 的 Q3/Q4-b/Q5/Q6-b 逐项一致（`work/check_f09_real.py` 21 项）；ECharts 5.6.1 本地落位、无 CDN；P12 管理员只读总览 + 筛选 + CSV 导出（BOM，Excel 中文）；双模式冒烟 sqlite 189 / 真库只读 131
 - [x] **异常用例 E01–E11 与 403/404/500 错误页收尾**（T13，2026-10-31）：重复提交 / 他人占用 / 封禁区间 / 已入住不可取消 / 已结算 / 押金不足 / 删除被引用 / 封禁冲突 / 方案重叠 / 房态不可入住等提示均可区分；`work/check_errors_real.py` 真库事务内 24 项全过；双模式冒烟 sqlite 190 / 真库只读 131
+- [x] **系统收尾核对**（2026-10-31）：新增 `docs/06-系统收尾核对.md`（20 行页面×路由×模板矩阵、13 项可复跑验证清单、演示账号与 5 分钟动线、已知限制与演示库恢复命令）；同日修复 `work/check_f04_real.py` 的 E03 文案断言、补 F09 两条主查询的 `EXPLAIN`（`work/explain_reports.py`），闸门新增「段落里写过期的『未开始』」检查
+- [x] **前端统一视觉（设计系统）**（2026-10-31）：`src/static/css/site.css` 重写为设计系统（CSS 变量 + `.yq-card` / `.yq-stat` / `.yq-chip` / `.yq-empty` / `.table-wrap` / `.yq-chart`），新增 `partials/stat.html` 与 `partials/empty_state.html`，`base.html` 页头改为面包屑 + `.yq-page-head`（`page_title` / `page_subtitle` / `page_actions`），19 个业务页与 3 张错误页全部套用；仍无 CDN、无新 JS 依赖
 - [ ] 报告 6 章与 PPT（阶段 6，T15–T17）
 - [ ] 统计报表、异常处理、测试与截图（12/05 – 12/11）
 - [ ] 课程报告、PPT 与现场检查（第 15–16 周）

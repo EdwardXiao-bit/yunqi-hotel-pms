@@ -1,135 +1,183 @@
 {% extends 'base.html' %}
 {% block title %}我的首页 · 云栖酒店{% endblock %}
 {% block page_title %}我的首页{% endblock %}
+{% block page_subtitle %}{% if customer %}{{ customer.name }}，欢迎回来 · 今天是 {{ today|date:'Y-m-d' }}{% else %}当前登录账号未关联客户档案，可前往对应工作台{% endif %}{% endblock %}
 {% block breadcrumb_current %}客户中心{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'core:available_rooms' %}" class="btn btn-primary btn-sm">
+  <i class="fas fa-search mr-1"></i>查询可用房
+</a>
+<a href="{% url 'core:my_reservations' %}" class="btn btn-outline-secondary btn-sm">
+  <i class="fas fa-list-alt mr-1"></i>全部预订
+</a>
+{% endblock %}
 
 {% block content %}
 <div class="row">
+  <div class="col-6 col-lg-3 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-hourglass-half' value=status_counts.pending|default:0 unit='单' label='待确认预订' hint='等待前台核对' tone='warning' %}
+  </div>
+  <div class="col-6 col-lg-3 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-check' value=status_counts.confirmed|default:0 unit='单' label='已确认' hint='含即将入住' tone='info' %}
+  </div>
+  <div class="col-6 col-lg-3 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-key' value=status_counts.checked_in|default:0 unit='单' label='在住' hint='已办理入住' tone='success' %}
+  </div>
+  <div class="col-6 col-lg-3 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-history' value=status_counts.checked_out|default:0 unit='单' label='历史已退房' hint='含已结算账单' tone='neutral' %}
+  </div>
+</div>
+
+<div class="row">
   <div class="col-lg-8">
-    <div class="card card-primary card-outline">
-      <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-calendar-check mr-1"></i>我的预订</h3>
-        <div class="card-tools">
-          <a href="{% url 'core:my_reservations' %}" class="btn btn-sm btn-outline-primary">
-            <i class="fas fa-list-alt mr-1"></i>全部预订
-          </a>
-          <a href="{% url 'core:customer_home' %}" class="btn btn-tool" title="刷新"><i class="fas fa-sync-alt"></i></a>
-        </div>
+    <div class="yq-card">
+      <div class="yq-card-head">
+        <h2 class="yq-card-title"><i class="fas fa-calendar-check"></i>我的预订</h2>
+        <div class="yq-hint">最近 5 条 · 按下单日期倒序</div>
       </div>
-      <div class="card-body p-0">
+      <div class="yq-card-body is-tight">
         {% if customer is None %}
-          <div class="p-3 text-muted">
-            <i class="fas fa-info-circle mr-1"></i>
-            当前登录账号没有关联的客户档案（管理员/前台账号属正常现象）。
-            客户档案由前台在首次到店或首次下单时建立。
-          </div>
+          {% include 'partials/empty_state.html' with icon='fas fa-user-slash' title='当前账号没有关联的客户档案' hint='管理员与前台账号属正常现象；客户档案由前台在首次到店或首次下单时建立。' %}
         {% elif reservations %}
-          <table class="table table-hover table-sm mb-0">
-            <thead>
-              <tr>
-                <th>预订号</th><th>房号 / 房型</th><th>入住</th><th>离店</th>
-                <th class="text-right">房晚</th><th class="text-right">金额</th><th>状态</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for r in reservations %}
+          <div class="table-wrap">
+            <table class="table table-sm table-hover">
+              <thead>
                 <tr>
-                  <td class="text-monospace">{{ r.reservation_no }}</td>
-                  <td>{{ r.room.room_no }} <span class="text-muted small">{{ r.room.room_type.name }}</span></td>
-                  <td>{{ r.check_in_date|date:'Y-m-d' }}</td>
-                  <td>{{ r.check_out_date|date:'Y-m-d' }}</td>
-                  <td class="text-right">{{ r.nights }}</td>
-                  <td class="text-right">{{ r.total_amount|floatformat:2 }}</td>
-                  <td>
-                    {% if r.status == 'pending' %}<span class="badge badge-warning">待确认</span>
-                    {% elif r.status == 'confirmed' %}<span class="badge badge-info">已确认</span>
-                    {% elif r.status == 'checked_in' %}<span class="badge badge-success">入住中</span>
-                    {% elif r.status == 'checked_out' %}<span class="badge badge-secondary">已退房</span>
-                    {% elif r.status == 'cancelled' %}<span class="badge badge-dark">已取消</span>
-                    {% else %}<span class="badge badge-danger">未到店</span>{% endif %}
-                  </td>
+                  <th>预订号</th>
+                  <th>房号 / 房型</th>
+                  <th>入住</th>
+                  <th>离店</th>
+                  <th class="text-right">房晚</th>
+                  <th class="text-right">金额（元）</th>
+                  <th>状态</th>
                 </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        {% else %}
-          <div class="p-3 text-muted">
-            <i class="far fa-folder-open mr-1"></i>还没有预订记录。
+              </thead>
+              <tbody>
+                {% for r in reservations %}
+                  <tr>
+                    <td class="text-monospace">
+                      <a href="{% url 'core:my_reservation_detail' r.pk %}">{{ r.reservation_no }}</a>
+                    </td>
+                    <td>
+                      {{ r.room.room_no }}
+                      <span class="yq-muted small">{{ r.room.room_type.name }}</span>
+                    </td>
+                    <td>{{ r.check_in_date|date:'Y-m-d' }}</td>
+                    <td>{{ r.check_out_date|date:'Y-m-d' }}</td>
+                    <td class="text-right">{{ r.nights }}</td>
+                    <td class="text-right text-monospace">{{ r.total_amount|floatformat:2 }}</td>
+                    <td>
+                      {% if r.status == 'pending' %}<span class="yq-chip is-warning"><i class="fas fa-hourglass-half"></i>待确认</span>
+                      {% elif r.status == 'confirmed' %}<span class="yq-chip is-info"><i class="fas fa-check"></i>已确认</span>
+                      {% elif r.status == 'checked_in' %}<span class="yq-chip is-success"><i class="fas fa-key"></i>入住中</span>
+                      {% elif r.status == 'checked_out' %}<span class="yq-chip is-neutral"><i class="fas fa-flag-checkered"></i>已退房</span>
+                      {% elif r.status == 'cancelled' %}<span class="yq-chip is-neutral"><i class="fas fa-ban"></i>已取消</span>
+                      {% else %}<span class="yq-chip is-danger"><i class="fas fa-user-slash"></i>未到店</span>{% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
+        {% else %}
+          {% url 'core:available_rooms' as available_url %}
+          {% include 'partials/empty_state.html' with icon='far fa-calendar' title='还没有预订' hint='先查一下这几天的可用房，选中房间即可在线提交预订' action_url=available_url action_label='去查可用房' %}
         {% endif %}
       </div>
-      {% if customer %}
-        <div class="card-footer small text-muted">
-          客户档案：{{ customer.name }} · {{ customer.phone }}
-          {% if customer.id_card %}· 证件 {{ customer.id_card|slice:':4' }}****{{ customer.id_card|slice:'-4:' }}{% endif %}
-        </div>
-      {% endif %}
+      <div class="yq-card-foot">
+        <a href="{% url 'core:my_reservations' %}" class="btn btn-outline-primary btn-sm">
+          查看全部预订<i class="fas fa-arrow-right ml-1"></i>
+        </a>
+        <span class="yq-hint ml-2">待确认 / 已确认的订单可在详情页取消，占用日期即时释放</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="yq-card">
+      <div class="yq-card-head">
+        <h2 class="yq-card-title"><i class="fas fa-id-card"></i>客户档案</h2>
+      </div>
+      <div class="yq-card-body">
+        {% if customer %}
+          <dl class="row mb-0 small">
+            <dt class="col-sm-4 yq-muted">姓名</dt>
+            <dd class="col-sm-8">{{ customer.name }}</dd>
+            <dt class="col-sm-4 yq-muted">手机号</dt>
+            <dd class="col-sm-8 text-monospace">{{ customer.phone }}</dd>
+            <dt class="col-sm-4 yq-muted">证件号</dt>
+            <dd class="col-sm-8 text-monospace">
+              {% if customer.id_card %}{{ customer.id_card|slice:':4' }}**********{{ customer.id_card|slice:'-2:' }}{% else %}—{% endif %}
+            </dd>
+          </dl>
+          <p class="yq-hint mb-0 mt-3">证件号仅展示首尾，完整信息以到店登记为准。</p>
+        {% else %}
+          <p class="yq-hint mb-0">当前账号没有客户档案，无法在线下单；请联系前台用手机号建立档案后再预订。</p>
+        {% endif %}
+      </div>
     </div>
 
-    <div class="card card-outline card-info">
-      <div class="card-header">
-        <h3 class="card-title"><i class="fas fa-bed mr-1"></i>房型与标准价</h3>
-        <div class="card-tools small text-muted">可用房查询与预订页在 T6–T7 落地</div>
+    <div class="yq-card">
+      <div class="yq-card-head">
+        <h2 class="yq-card-title"><i class="fas fa-receipt"></i>价格与取消</h2>
       </div>
-      <div class="card-body p-0">
-        <table class="table table-hover table-sm mb-0">
-          <thead><tr><th>房型</th><th>床型</th><th class="text-right">面积(㎡)</th><th class="text-right">可住</th><th class="text-right">标准价(元/晚)</th></tr></thead>
+      <div class="yq-card-body">
+        <ul class="list-unstyled small mb-0">
+          <li class="mb-2"><i class="fas fa-calendar-day yq-muted mr-1"></i>成交价逐晚计算：命中价格方案取方案价，否则取房型标准价。</li>
+          <li class="mb-2"><i class="fas fa-lock yq-muted mr-1"></i>下单时价格快照写入订单，之后调价不影响已确认金额。</li>
+          <li class="mb-0"><i class="fas fa-undo yq-muted mr-1"></i>取消或未到店会释放占用日期，押金与结算在入住、退房时处理。</li>
+        </ul>
+      </div>
+      <div class="yq-card-foot">
+        <a href="{% url 'core:available_rooms' %}" class="btn btn-primary btn-sm w-100">
+          <i class="fas fa-calendar-plus mr-1"></i>开始新预订
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="yq-card">
+  <div class="yq-card-head">
+    <h2 class="yq-card-title"><i class="fas fa-bed"></i>房型与标准价</h2>
+    <div class="yq-hint">标准价为基准价，实际成交价按入住日期逐晚计算</div>
+  </div>
+  <div class="yq-card-body is-tight">
+    {% if room_types %}
+      <div class="table-wrap">
+        <table class="table table-sm table-hover">
+          <thead>
+            <tr>
+              <th>房型</th>
+              <th>床型</th>
+              <th class="text-right">面积（㎡）</th>
+              <th class="text-right">可住</th>
+              <th class="text-right">标准价（元/晚）</th>
+              <th class="text-right">操作</th>
+            </tr>
+          </thead>
           <tbody>
             {% for rt in room_types %}
               <tr>
                 <td>{{ rt.name }}</td>
                 <td>{{ rt.get_bed_type_display }}</td>
                 <td class="text-right">{{ rt.area|default:'—' }}</td>
-                <td class="text-right">{{ rt.capacity }}</td>
-                <td class="text-right">{{ rt.base_price|floatformat:2 }}</td>
+                <td class="text-right">{{ rt.capacity }} 人</td>
+                <td class="text-right text-monospace">{{ rt.base_price|floatformat:2 }}</td>
+                <td class="text-right">
+                  <a href="{% url 'core:available_rooms' %}" class="btn btn-outline-secondary btn-sm">
+                    查可订<i class="fas fa-arrow-right ml-1"></i>
+                  </a>
+                </td>
               </tr>
-            {% empty %}
-              <tr><td colspan="5" class="text-muted p-3">暂无在售房型。</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-    </div>
+    {% else %}
+      {% include 'partials/empty_state.html' with icon='far fa-folder-open' title='暂无可售房型' hint='请联系前台确认在售房型与价格方案。' %}
+    {% endif %}
   </div>
-
-  <div class="col-lg-4">
-    <div class="small-box bg-info">
-      <div class="inner">
-        <h3>{{ status_counts.pending|default:0 }}</h3>
-        <p>待确认预订</p>
-      </div>
-      <div class="icon"><i class="fas fa-hourglass-half"></i></div>
-    </div>
-    <div class="small-box bg-success">
-      <div class="inner">
-        <h3>{{ status_counts.confirmed|default:0 }}</h3>
-        <p>已确认（含即将入住）</p>
-      </div>
-      <div class="icon"><i class="fas fa-check"></i></div>
-    </div>
-    <div class="small-box bg-primary">
-      <div class="inner">
-        <h3>{{ status_counts.checked_in|default:0 }}</h3>
-        <p>在住</p>
-      </div>
-      <div class="icon"><i class="fas fa-key"></i></div>
-    </div>
-    <div class="small-box bg-secondary">
-      <div class="inner">
-        <h3>{{ status_counts.checked_out|default:0 }}</h3>
-        <p>历史已退房</p>
-      </div>
-      <div class="icon"><i class="fas fa-history"></i></div>
-    </div>
-  </div>
-</div>
-
-<div class="callout callout-info mt-3">
-  <h5><i class="fas fa-compass mr-1"></i>今天：{{ today|date:'Y-m-d' }}</h5>
-  <p class="mb-0">
-    本页目前提供账号登录、角色分区与数据概览三项能力（T4–T5 交付）。
-    可用房查询（F03）、在线预订（F04）、我的预订与取消（F05）将按
-    <code>docs/页面约定.md</code> 的 P02–P04 在 T6–T7 接入。
-  </p>
 </div>
 {% endblock %}

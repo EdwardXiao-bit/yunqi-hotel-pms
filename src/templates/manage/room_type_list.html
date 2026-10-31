@@ -1,47 +1,40 @@
 {% extends 'base.html' %}
+
 {% block title %}房型与价格维护 · 云栖酒店{% endblock %}
 {% block page_title %}房型与价格维护{% endblock %}
+{% block page_subtitle %}标准价兜底 · 价格方案按生效区间覆盖 · 停用不影响既有房间与订单{% endblock %}
 {% block breadcrumb_current %}系统管理{% endblock %}
 
+{% block page_actions %}
+  <a class="btn btn-sm btn-primary" href="{% url 'core:room_type_new' %}">
+    <i class="fas fa-plus mr-1"></i>新建房型
+  </a>
+{% endblock %}
+
 {% block content %}
+{% url 'core:room_type_new' as new_room_type_url %}
 <div class="row">
-  <div class="col-lg-3 col-6">
-    <div class="small-box bg-primary">
-      <div class="inner"><h3>{{ summary.room_types }}</h3><p>房型总数</p></div>
-      <div class="icon"><i class="fas fa-bed"></i></div>
-    </div>
+  <div class="col-6 col-lg-3 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-bed' value=summary.room_types unit='类' label='房型总数' hint='含已停用房型' tone='info' %}
   </div>
-  <div class="col-lg-3 col-6">
-    <div class="small-box bg-success">
-      <div class="inner"><h3>{{ summary.active }}</h3><p>在售房型</p></div>
-      <div class="icon"><i class="fas fa-check-circle"></i></div>
-    </div>
+  <div class="col-6 col-lg-3 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-check-circle' value=summary.active unit='类' label='在售房型' hint='客户可查询与下单' tone='success' %}
   </div>
-  <div class="col-lg-3 col-6">
-    <div class="small-box bg-info">
-      <div class="inner"><h3>{{ summary.plans }}</h3><p>价格方案</p></div>
-      <div class="icon"><i class="fas fa-tags"></i></div>
-    </div>
+  <div class="col-6 col-lg-3 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-tags' value=summary.plans unit='条' label='价格方案' hint='闭区间，不可重叠' tone='gold' %}
   </div>
-  <div class="col-lg-3 col-6">
-    <div class="small-box bg-secondary">
-      <div class="inner"><h3>{{ summary.rooms }}</h3><p>房间数</p></div>
-      <div class="icon"><i class="fas fa-door-open"></i></div>
-    </div>
+  <div class="col-6 col-lg-3 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-door-open' value=summary.rooms unit='间' label='房间数' hint='含维修 / 停用' tone='neutral' %}
   </div>
 </div>
 
-<div class="card card-outline card-primary">
-  <div class="card-header">
-    <h5 class="card-title mb-0">房型列表</h5>
-    <div class="card-tools">
-      <a class="btn btn-sm btn-primary" href="{% url 'core:room_type_new' %}">
-        <i class="fas fa-plus mr-1"></i>新建房型
-      </a>
-    </div>
+<div class="yq-card">
+  <div class="yq-card-head">
+    <h2 class="yq-card-title"><i class="fas fa-list"></i>房型列表</h2>
+    <span class="yq-hint">共 {{ room_types|length }} 条 · 标准价是未命中方案时的兜底价</span>
   </div>
-  <div class="card-body p-0">
-    <table class="table table-hover table-sm mb-0">
+  <div class="table-wrap">
+    <table class="table table-sm table-hover">
       <thead>
         <tr>
           <th style="width:60px">编号</th>
@@ -54,7 +47,7 @@
           <th style="width:80px" class="text-right">可售房</th>
           <th style="width:90px" class="text-right">价格方案</th>
           <th style="width:90px">状态</th>
-          <th style="width:200px">操作</th>
+          <th style="width:210px">操作</th>
         </tr>
       </thead>
       <tbody>
@@ -63,17 +56,17 @@
             <td class="text-monospace">{{ item.id }}</td>
             <td>{{ item.name }}</td>
             <td>{{ item.get_bed_type_display }}</td>
-            <td>{{ item.area|default:"—" }}</td>
-            <td>{{ item.capacity }} 人</td>
-            <td class="text-right text-monospace">{{ item.base_price }}</td>
-            <td class="text-right">{{ item.room_count }}</td>
-            <td class="text-right">{{ item.sellable_count }}</td>
-            <td class="text-right">{{ item.plan_count }}</td>
+            <td class="yq-num">{{ item.area|default:"—" }}</td>
+            <td class="yq-num">{{ item.capacity }} 人</td>
+            <td class="text-right yq-amount">{{ item.base_price }}</td>
+            <td class="text-right yq-num">{{ item.room_count }}</td>
+            <td class="text-right yq-num">{{ item.sellable_count }}</td>
+            <td class="text-right yq-num">{{ item.plan_count }}</td>
             <td>
               {% if item.is_active %}
-                <span class="badge badge-success">在售</span>
+                <span class="yq-chip is-success">在售</span>
               {% else %}
-                <span class="badge badge-secondary">已停用</span>
+                <span class="yq-chip is-neutral">已停用</span>
               {% endif %}
             </td>
             <td>
@@ -97,14 +90,20 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="11" class="text-center text-muted py-4">还没有房型，先新建一个。</td></tr>
+          <tr>
+            <td colspan="11" class="p-0">
+              {% include 'partials/empty_state.html' with icon='fas fa-bed' title='还没有房型' hint='先新建一个房型，再为它配置价格方案与房间。' action_url=new_room_type_url action_label='新建房型' %}
+            </td>
+          </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  <div class="card-footer text-muted small">
-    标准价是“没有命中价格方案时的兜底价”；价格方案按生效区间覆盖标准价（闭区间，含起止当天）。
-    已确认订单的逐日成交价已写入 <code>reservation_price</code>，之后调价不影响历史订单。
+  <div class="yq-card-foot">
+    <div class="yq-hint">
+      标准价是「没有命中价格方案时的兜底价」；价格方案按生效区间覆盖标准价（闭区间，含起止当天）。
+      已确认订单的逐日成交价已写入 <code>reservation_price</code>，之后调价不影响历史订单。
+    </div>
   </div>
 </div>
 {% endblock %}

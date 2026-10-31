@@ -1,57 +1,63 @@
 {% extends 'base.html' %}
+
 {% block title %}客户与账号一览 · 云栖酒店{% endblock %}
 {% block page_title %}客户与账号一览{% endblock %}
+{% block page_subtitle %}客户档案与系统账号只读视图 · 支持姓名 / 手机 / 登录名检索{% endblock %}
 {% block breadcrumb_current %}系统管理{% endblock %}
 
+{% block page_actions %}
+  <span class="yq-chip is-neutral"><i class="fas fa-lock"></i>只读页面</span>
+{% endblock %}
+
 {% block content %}
+{% url 'core:customer_list' as customer_list_url %}
 <div class="row">
-  <div class="col-lg-3 col-6">
-    <div class="small-box bg-primary">
-      <div class="inner"><h3>{{ counts.customers }}</h3><p>客户档案</p></div>
-      <div class="icon"><i class="fas fa-users"></i></div>
-    </div>
+  <div class="col-6 col-lg-3 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-users' value=counts.customers unit='位' label='客户档案' hint='含线下散客' tone='info' %}
   </div>
-  <div class="col-lg-3 col-6">
-    <div class="small-box bg-info">
-      <div class="inner"><h3>{{ counts.accounts }}</h3><p>系统账号</p></div>
-      <div class="icon"><i class="fas fa-user-shield"></i></div>
-    </div>
+  <div class="col-6 col-lg-3 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-user-shield' value=counts.accounts unit='个' label='系统账号' hint='customer / receptionist / admin' tone='gold' %}
   </div>
-  <div class="col-lg-3 col-6">
-    <div class="small-box bg-warning">
-      <div class="inner"><h3>{{ counts.walkin }}</h3><p>线下散客</p></div>
-      <div class="icon"><i class="fas fa-user-friends"></i></div>
-    </div>
+  <div class="col-6 col-lg-3 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-user-friends' value=counts.walkin unit='位' label='线下散客' hint='无登录账号的客户' tone='warning' %}
   </div>
-  <div class="col-lg-3 col-6">
-    <div class="small-box bg-secondary">
-      <div class="inner"><h3>{{ counts.reservations }}</h3><p>历史预订</p></div>
-      <div class="icon"><i class="fas fa-calendar-check"></i></div>
-    </div>
+  <div class="col-6 col-lg-3 mb-3">
+    {% include 'partials/stat.html' with icon='fas fa-calendar-check' value=counts.reservations unit='张' label='历史预订' hint='全部状态合计' tone='neutral' %}
   </div>
 </div>
 
-<div class="card card-outline card-primary">
-  <div class="card-header">
-    <h5 class="card-title mb-0">客户列表</h5>
-    <div class="card-tools" style="width:420px">
-      <form method="get" class="form-inline justify-content-end">
-        <input type="text" name="keyword" class="form-control form-control-sm mr-2" style="width:180px"
-               value="{{ keyword }}" placeholder="姓名 / 手机 / 登录名">
-        <select name="role" class="form-control form-control-sm mr-2">
+<div class="yq-card">
+  <div class="yq-card-head">
+    <h2 class="yq-card-title"><i class="fas fa-users"></i>客户列表</h2>
+    <span class="yq-hint">共 {{ paginator.count }} 位客户</span>
+  </div>
+  <div class="yq-card-body">
+    <form method="get" class="yq-toolbar">
+      <div class="yq-field" style="min-width:210px">
+        <label for="keyword">姓名 / 手机 / 登录名</label>
+        <input type="text" name="keyword" id="keyword" class="form-control"
+               value="{{ keyword }}" placeholder="输入关键字">
+      </div>
+      <div class="yq-field" style="min-width:160px">
+        <label for="role">客户来源</label>
+        <select name="role" id="role" class="form-control">
           <option value="">全部来源</option>
           <option value="customer" {% if role == 'customer' %}selected{% endif %}>会员客户</option>
           <option value="walkin" {% if role == 'walkin' %}selected{% endif %}>线下散客</option>
         </select>
-        <button type="submit" class="btn btn-sm btn-primary">筛选</button>
-        {% if keyword or role %}
-          <a class="btn btn-sm btn-outline-secondary ml-2" href="{% url 'core:customer_list' %}">重置</a>
-        {% endif %}
-      </form>
-    </div>
+      </div>
+      <div class="yq-field">
+        <button type="submit" class="btn btn-primary"><i class="fas fa-search mr-1"></i>筛选</button>
+      </div>
+      {% if keyword or role %}
+        <div class="yq-field">
+          <a class="btn btn-outline-secondary" href="{% url 'core:customer_list' %}">重置</a>
+        </div>
+      {% endif %}
+    </form>
   </div>
-  <div class="card-body p-0">
-    <table class="table table-hover table-sm mb-0">
+  <div class="table-wrap">
+    <table class="table table-sm table-hover">
       <thead>
         <tr>
           <th style="width:60px">编号</th>
@@ -61,7 +67,7 @@
           <th>登录账号</th>
           <th style="width:100px" class="text-right">预订数</th>
           <th style="width:130px" class="text-right">在住/已住金额</th>
-          <th style="width:120px">操作</th>
+          <th style="width:110px">操作</th>
         </tr>
       </thead>
       <tbody>
@@ -73,15 +79,21 @@
             <td class="text-monospace">{{ item.id_card|default:"—" }}</td>
             <td>
               {% if item.user %}
-                {{ item.user.username }}
-                <span class="badge badge-light ml-1">{{ item.user.role_label }}</span>
-                {% if not item.user.is_active %}<span class="badge badge-secondary">已停用</span>{% endif %}
+                <span class="text-monospace">{{ item.user.username }}</span>
+                {% if item.user.role == 'admin' %}
+                  <span class="yq-chip is-gold ml-1">{{ item.user.role_label }}</span>
+                {% elif item.user.role == 'receptionist' %}
+                  <span class="yq-chip is-info ml-1">{{ item.user.role_label }}</span>
+                {% else %}
+                  <span class="yq-chip is-neutral ml-1">{{ item.user.role_label }}</span>
+                {% endif %}
+                {% if not item.user.is_active %}<span class="yq-chip is-warning ml-1">已停用</span>{% endif %}
               {% else %}
-                <span class="badge badge-warning">线下散客</span>
+                <span class="yq-chip is-warning">线下散客</span>
               {% endif %}
             </td>
-            <td class="text-right">{{ item.reservation_count }}</td>
-            <td class="text-right text-monospace">{{ item.stay_total|default:"0.00" }}</td>
+            <td class="text-right yq-num">{{ item.reservation_count }}</td>
+            <td class="text-right yq-amount">{{ item.stay_total|default:"0.00" }}</td>
             <td>
               {% if item.reservation_count %}
                 <a class="btn btn-sm btn-outline-primary"
@@ -89,25 +101,32 @@
                   查预订
                 </a>
               {% else %}
-                <span class="text-muted small">无预订</span>
+                <span class="yq-hint">无预订</span>
               {% endif %}
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="8" class="text-center text-muted py-4">没有匹配的客户。</td></tr>
+          <tr>
+            <td colspan="8" class="p-0">
+              {% include 'partials/empty_state.html' with icon='fas fa-user-slash' title='没有匹配的客户' hint='换个姓名 / 手机号 / 登录名再试，或清空筛选条件。' action_url=customer_list_url action_label='清空筛选' %}
+            </td>
+          </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  <div class="card-footer">
+  <div class="yq-card-foot">
     {% include 'partials/pagination.html' with page_obj=page querystring=querystring %}
   </div>
 </div>
 
-<div class="card card-outline card-secondary">
-  <div class="card-header"><h5 class="card-title mb-0">系统账号（{{ accounts|length }}）</h5></div>
-  <div class="card-body p-0">
-    <table class="table table-hover table-sm mb-0">
+<div class="yq-card">
+  <div class="yq-card-head">
+    <h2 class="yq-card-title"><i class="fas fa-user-shield"></i>系统账号（{{ accounts|length }}）</h2>
+    <span class="yq-hint">角色由 <code>app_user.role</code> 决定，账号只读</span>
+  </div>
+  <div class="table-wrap">
+    <table class="table table-sm table-hover">
       <thead>
         <tr>
           <th style="width:60px">编号</th>
@@ -125,14 +144,22 @@
             <td class="text-monospace">{{ account.id }}</td>
             <td class="text-monospace">{{ account.username }}</td>
             <td>{{ account.display_name }}</td>
-            <td>{{ account.role_label }}</td>
+            <td>
+              {% if account.role == 'admin' %}
+                <span class="yq-chip is-gold">{{ account.role_label }}</span>
+              {% elif account.role == 'receptionist' %}
+                <span class="yq-chip is-info">{{ account.role_label }}</span>
+              {% else %}
+                <span class="yq-chip is-neutral">{{ account.role_label }}</span>
+              {% endif %}
+            </td>
             <td class="text-monospace">{{ account.phone|default:"—" }}</td>
-            <td>{{ account.last_login|date:"Y-m-d H:i"|default:"—" }}</td>
+            <td class="text-monospace">{{ account.last_login|date:"Y-m-d H:i"|default:"—" }}</td>
             <td>
               {% if account.is_active %}
-                <span class="badge badge-success">启用</span>
+                <span class="yq-chip is-success">启用</span>
               {% else %}
-                <span class="badge badge-secondary">停用</span>
+                <span class="yq-chip is-neutral">停用</span>
               {% endif %}
             </td>
           </tr>
@@ -140,9 +167,11 @@
       </tbody>
     </table>
   </div>
-  <div class="card-footer small text-muted">
-    本页只读：账号由 `sql/03_seed.sql` 统一灌入（口令 `Hotel@123`），客户档案在入住或预订时自动建立；
-    金额列统计的是“在住 + 已退房”订单的预订总额，取消/未到店不计。
+  <div class="yq-card-foot">
+    <div class="yq-hint">
+      本页只读：账号由 <code>sql/03_seed.sql</code> 统一灌入（口令 <code>Hotel@123</code>），客户档案在入住或预订时自动建立；
+      金额列统计的是「在住 + 已退房」订单的预订总额，取消 / 未到店不计。
+    </div>
   </div>
 </div>
 {% endblock %}

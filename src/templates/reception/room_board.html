@@ -1,146 +1,167 @@
 {% extends 'base.html' %}
-
 {% block title %}房态看板 · 云栖酒店{% endblock %}
 {% block page_title %}房态看板{% endblock %}
+{% block page_subtitle %}按楼层 / 房型查看物理房态；清洁完成、置为清洁中、登记维修停用都在卡片上完成，动作会写房态日志{% endblock %}
 {% block breadcrumb_current %}前台作业 / 房态看板{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'core:checkin_new' %}" class="btn btn-primary btn-sm">
+  <i class="fas fa-sign-in-alt mr-1"></i>入住办理
+</a>
+{% endblock %}
 
 {% block content %}
 <div class="row">
   {% for item in summary %}
-  <div class="col-lg-3 col-6">
-    <div class="small-box bg-{{ item.color }}">
-      <div class="inner">
-        <h3>{{ item.count }}<sup style="font-size: 18px"> 间</sup></h3>
-        <p>{{ item.label }}</p>
-      </div>
-      <div class="icon"><i class="fas fa-bed"></i></div>
-      <span class="small-box-footer">共 {{ cards_total }} 间房 · {{ today|date:'Y-m-d' }}</span>
-    </div>
+  <div class="col-xl-3 col-md-6 mb-3">
+    {% if item.color == 'success' %}
+      {% include 'partials/stat.html' with icon='fas fa-door-open' value=item.count unit='间' label=item.label hint='可直接接待新入住' tone='success' %}
+    {% elif item.color == 'info' %}
+      {% include 'partials/stat.html' with icon='fas fa-broom' value=item.count unit='间' label=item.label hint='清洁完成后才能入住' tone='info' %}
+    {% elif item.color == 'warning' %}
+      {% include 'partials/stat.html' with icon='fas fa-tools' value=item.count unit='间' label=item.label hint='登记区间内不可售' tone='warning' %}
+    {% else %}
+      {% include 'partials/stat.html' with icon='fas fa-ban' value=item.count unit='间' label=item.label hint='长期停用，不计可售房夜' tone='neutral' %}
+    {% endif %}
   </div>
   {% endfor %}
 </div>
 
-<div class="card card-outline card-primary">
-  <div class="card-header">
-    <h3 class="card-title"><i class="fas fa-filter mr-1"></i>筛选</h3>
-    <div class="card-tools small text-muted d-none d-md-block">
-      维修中 / 停用必须登记日期区间，登记时会检查该区间是否已有有效订单
-    </div>
+<div class="yq-card">
+  <div class="yq-card-head">
+    <h3 class="yq-card-title"><i class="fas fa-filter"></i>筛选</h3>
+    <span class="yq-muted small d-none d-md-inline">维修中 / 停用必须登记日期区间，登记时会检查该区间是否已有有效订单</span>
   </div>
-  <div class="card-body py-3">
-    <form method="get" class="form-inline">
-      <label class="mr-2 mb-2" for="floor">楼层</label>
-      <select class="form-control form-control-sm mr-3 mb-2" id="floor" name="floor">
-        <option value="">全部楼层</option>
-        {% for f in floors %}
-        <option value="{{ f }}" {% if selected_floor == f %}selected{% endif %}>{{ f }} 层</option>
-        {% endfor %}
-      </select>
-      <label class="mr-2 mb-2" for="room_type_id">房型</label>
-      <select class="form-control form-control-sm mr-3 mb-2" id="room_type_id" name="room_type_id">
-        <option value="">全部房型</option>
-        {% for t in room_types %}
-        <option value="{{ t.pk }}" {% if selected_room_type == t.pk %}selected{% endif %}>{{ t.name }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="btn btn-primary btn-sm mb-2 mr-2"><i class="fas fa-search mr-1"></i>筛选</button>
-      <a href="{% url 'core:room_board' %}" class="btn btn-default btn-sm mb-2">重置</a>
-      <span class="ml-auto small text-muted mb-2">
-        当前显示 {{ groups|length }} 个楼层分组
-      </span>
+  <div class="yq-card-body">
+    <form method="get" class="yq-toolbar">
+      <div class="yq-field">
+        <label for="floor">楼层</label>
+        <select class="form-control form-control-sm" id="floor" name="floor">
+          <option value="">全部楼层</option>
+          {% for f in floors %}
+          <option value="{{ f }}" {% if selected_floor == f %}selected{% endif %}>{{ f }} 层</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="yq-field">
+        <label for="room_type_id">房型</label>
+        <select class="form-control form-control-sm" id="room_type_id" name="room_type_id">
+          <option value="">全部房型</option>
+          {% for t in room_types %}
+          <option value="{{ t.pk }}" {% if selected_room_type == t.pk %}selected{% endif %}>{{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="yq-field">
+        <label>&nbsp;</label>
+        <div class="d-flex">
+          <button type="submit" class="btn btn-primary btn-sm mr-2"><i class="fas fa-search mr-1"></i>筛选</button>
+          <a href="{% url 'core:room_board' %}" class="btn btn-default btn-sm">重置</a>
+        </div>
+      </div>
+      <div class="yq-field ml-auto">
+        <label>图例</label>
+        <div class="d-flex flex-wrap" style="gap: 6px;">
+          <span class="yq-chip is-success">可用</span>
+          <span class="yq-chip is-info">清洁中</span>
+          <span class="yq-chip is-warning">维修中</span>
+          <span class="yq-chip is-neutral">停用</span>
+        </div>
+      </div>
     </form>
+  </div>
+  <div class="yq-card-foot d-flex flex-wrap align-items-center">
+    <span class="yq-hint mr-auto">共 {{ cards_total }} 间房 · 当前显示 {{ groups|length }} 个楼层分组 · {{ today|date:'Y-m-d' }}</span>
+    <span class="yq-muted small">单个房间的动作即时生效并记录操作人</span>
   </div>
 </div>
 
 {% if not groups %}
-<div class="alert alert-info">
-  <i class="fas fa-info-circle mr-1"></i>没有匹配的房间：请调整楼层或房型筛选。
-</div>
+  {% include 'partials/empty_state.html' with icon='fas fa-door-closed' title='没有匹配的房间' hint='调整楼层或房型筛选后再看' %}
 {% endif %}
 
 {% for group in groups %}
-<div class="card card-outline card-secondary">
-  <div class="card-header">
-    <h3 class="card-title"><i class="fas fa-layer-group mr-1"></i>{{ group.floor }} 层</h3>
-    <div class="card-tools small text-muted">{{ group.cards|length }} 间房</div>
+<div class="yq-card">
+  <div class="yq-card-head">
+    <h3 class="yq-card-title"><i class="fas fa-layer-group"></i>{{ group.floor }} 层</h3>
+    <span class="yq-chip is-neutral">{{ group.cards|length }} 间房</span>
   </div>
-  <div class="card-body">
+  <div class="yq-card-body">
     <div class="row">
       {% for card in group.cards %}
-      <div class="col-xl-3 col-lg-4 col-md-6">
-        <div class="card card-outline card-{{ card.status_color }} mb-3">
-          <div class="card-header py-2">
-            <h3 class="card-title" style="font-size: 18px;">
-              {{ card.room.room_no }}
-              <span class="badge badge-{{ card.status_color }} ml-1">{{ card.status_label }}</span>
-            </h3>
-            <div class="card-tools">
-              <span class="text-muted small">{{ card.room.room_type.name }}</span>
+      <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
+        <div class="yq-card h-100 mb-0" style="border-left: 3px solid {% if card.status_color == 'success' %}#2f7d5d{% elif card.status_color == 'info' %}#2c6e8f{% elif card.status_color == 'warning' %}#a9761c{% else %}#6b7a86{% endif %};">
+          <div class="yq-card-body">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="text-monospace" style="font-size: 1.35rem; font-weight: 600; line-height: 1.15;">{{ card.room.room_no }}</div>
+                <div class="yq-muted small">{{ card.room.room_type.name }}</div>
+              </div>
+              <span class="yq-chip {% if card.status_color == 'secondary' %}is-neutral{% else %}is-{{ card.status_color }}{% endif %}">{{ card.status_label }}</span>
             </div>
-          </div>
-          <div class="card-body py-2">
-            <div class="small text-muted mb-1">
-              <i class="fas fa-arrows-alt-v mr-1"></i>{{ card.room.floor }} 层 · 朝{{ card.room.get_orientation_display }}
-              · 可住 {{ card.room.room_type.capacity }} 人
+            <div class="yq-hint mt-1">
+              <i class="fas fa-arrows-alt-v mr-1"></i>{{ card.room.floor }} 层 · 朝{{ card.room.get_orientation_display }} · 可住 {{ card.room.room_type.capacity }} 人
             </div>
 
             {% if card.arrival %}
-            <div class="small mb-1">
-              <span class="badge badge-primary">今日到店</span>
-              {{ card.arrival.customer.name }} · {{ card.arrival.reservation_no }}
+            <div class="small mt-2">
+              <span class="yq-chip is-primary">今日到店</span>
+              {{ card.arrival.customer.name }}
+              <span class="yq-muted text-monospace">{{ card.arrival.reservation_no }}</span>
             </div>
             {% endif %}
             {% if card.stay %}
-            <div class="small mb-1">
-              <span class="badge badge-success">在住</span>
-              {{ card.guest.name }} · {{ card.stay.reservation.check_out_date|date:'m-d' }} 离店
+            <div class="small mt-2">
+              <span class="yq-chip is-success">在住</span>
+              {{ card.guest.name }}
+              <span class="yq-muted text-monospace">{{ card.stay.reservation.check_out_date|date:'m-d' }} 离店</span>
             </div>
             {% endif %}
             {% if card.departure %}
-            <div class="small mb-1">
-              <span class="badge badge-warning">今日退房</span>
+            <div class="small mt-2">
+              <span class="yq-chip is-warning">今日退房</span>
               {% if card.stay %}{{ card.guest.name }}{% else %}{{ card.departure.customer.name }}{% endif %}
             </div>
             {% endif %}
 
             {% if card.block %}
-            <div class="alert alert-{{ card.status_color }} py-1 px-2 small mb-2 mt-2">
-              <i class="fas fa-tools mr-1"></i>{{ card.block.get_block_type_display }}中：
-              {{ card.block.start_date|date:'m-d' }} 至 {{ card.block.end_date|date:'m-d' }}
-              {% if card.block.reason %}<br>原因：{{ card.block.reason }}{% endif %}
+            <div class="mt-2">
+              <span class="yq-chip is-warning">{{ card.block.get_block_type_display }}中</span>
+              <span class="small text-monospace">{{ card.block.start_date|date:'m-d' }} 至 {{ card.block.end_date|date:'m-d' }}</span>
+              {% if card.block.reason %}<div class="yq-hint mt-1">原因：{{ card.block.reason }}</div>{% endif %}
             </div>
             {% endif %}
 
             {% if not card.arrival and not card.stay and not card.block and card.room.status == 'available' %}
-            <div class="small text-muted mb-2"><i class="fas fa-check-circle mr-1"></i>当前空闲，可接待新入住</div>
+            <div class="yq-hint mt-2"><i class="fas fa-check-circle mr-1"></i>当前空闲，可接待新入住</div>
             {% endif %}
           </div>
-          <div class="card-footer py-2">
-            <form method="post" class="d-inline">
+          <div class="yq-card-foot d-flex flex-wrap align-items-center" style="gap: 6px;">
+            <form method="post" class="d-flex flex-wrap" style="gap: 6px;">
               {% csrf_token %}
               <input type="hidden" name="room_id" value="{{ card.room.pk }}">
               <input type="hidden" name="floor" value="{{ selected_floor|default_if_none:'' }}">
               <input type="hidden" name="room_type_id" value="{{ selected_room_type|default_if_none:'' }}">
               {% if card.can_clean %}
-              <button name="action" value="clean" class="btn btn-success btn-xs" data-confirm="确认房间 {{ card.room.room_no }} 已清洁完成并恢复正常？">
+              <button name="action" value="clean" class="btn btn-success btn-sm" data-confirm="确认房间 {{ card.room.room_no }} 已清洁完成并恢复正常？">
                 <i class="fas fa-broom mr-1"></i>清洁完成
               </button>
               {% endif %}
               {% if card.can_mark_cleaning %}
-              <button name="action" value="cleaning" class="btn btn-info btn-xs" data-confirm="把房间 {{ card.room.room_no }} 置为「清洁中」？">
+              <button name="action" value="cleaning" class="btn btn-info btn-sm" data-confirm="把房间 {{ card.room.room_no }} 置为「清洁中」？">
                 <i class="fas fa-broom mr-1"></i>置为清洁中
               </button>
               {% endif %}
               {% if card.can_unblock %}
-              <button name="action" value="unblock" class="btn btn-warning btn-xs" data-confirm="结束房间 {{ card.room.room_no }} 的维修/停用并恢复正常？">
+              <button name="action" value="unblock" class="btn btn-warning btn-sm" data-confirm="结束房间 {{ card.room.room_no }} 的维修/停用并恢复正常？">
                 <i class="fas fa-check mr-1"></i>结束维修/停用
               </button>
               {% endif %}
             </form>
 
             {% if not card.can_unblock %}
-            <details class="mt-2">
-              <summary class="small text-muted" style="cursor: pointer;">登记维修 / 停用</summary>
+            <details class="w-100" style="flex-basis: 100%;">
+              <summary class="btn btn-outline-warning btn-sm" style="list-style: none; cursor: pointer;">登记维修 / 停用</summary>
               <form method="post" class="mt-2">
                 {% csrf_token %}
                 <input type="hidden" name="room_id" value="{{ card.room.pk }}">
@@ -166,7 +187,7 @@
                            placeholder="原因（可空）" aria-label="原因">
                   </div>
                 </div>
-                <button name="action" value="block" class="btn btn-warning btn-xs btn-block"
+                <button name="action" value="block" class="btn btn-warning btn-sm btn-block"
                         data-confirm="登记后该房间在所选日期区间不可售，确认提交？">
                   <i class="fas fa-tools mr-1"></i>登记区间
                 </button>
@@ -182,13 +203,15 @@
 </div>
 {% endfor %}
 
-<div class="card card-outline card-info">
-  <div class="card-header"><h3 class="card-title"><i class="fas fa-info-circle mr-1"></i>看板口径</h3></div>
-  <div class="card-body small text-muted mb-0">
-    <ul class="mb-0 pl-3">
-      <li><strong>房态只表达当下物理可用性</strong>：「已预订」「入住中」由订单与入住记录推导，不写进房态字段（数据字典 §4.1）。</li>
-      <li><strong>清洁中不能办理入住</strong>：前台需先在这里点「清洁完成」把房间恢复正常，系统自动记一条房态日志（操作人与时间）。</li>
-      <li><strong>维修 / 停用必须登记区间</strong>：区间存进 <code>room_block</code>，可用房查询与入住率的分母都会按它扣减；登记时若与有效订单冲突会被拒绝并提示先处理订单。</li>
+<div class="yq-card">
+  <div class="yq-card-head">
+    <h3 class="yq-card-title"><i class="fas fa-info-circle"></i>看板口径</h3>
+  </div>
+  <div class="yq-card-body">
+    <ul class="pl-3 mb-0 small">
+      <li class="mb-2"><strong>房态只表达当下物理可用性</strong>：「已预订」「入住中」由订单与入住记录推导，不写进房态字段（数据字典 §4.1）。</li>
+      <li class="mb-2"><strong>清洁中不能办理入住</strong>：前台需先在这里点「清洁完成」把房间恢复正常，系统自动记一条房态日志（操作人与时间）。</li>
+      <li class="mb-2"><strong>维修 / 停用必须登记区间</strong>：区间存进 <code>room_block</code>，可用房查询与入住率的分母都会按它扣减；登记时若与有效订单冲突会被拒绝并提示先处理订单。</li>
       <li><strong>结束维修/停用</strong>：把区间截止到当天并把房态恢复正常，历史登记保留可追溯。</li>
     </ul>
   </div>

@@ -182,6 +182,20 @@ def check_task_leftovers(tasks: dict[str, str]) -> None:
             fail(f"任务行 {tid} 已标 ✅，但状态列仍有待办字样（{'、'.join(leftovers)}）：{cell[:60]}")
 
 
+def check_stale_task_mentions(doc_text: str, tasks: dict[str, str]) -> None:
+    """段落里写「T13、T15–T17 未开始」这类话时，被点名的任务必须确实未完成。"""
+    for raw in doc_text.splitlines():
+        if "未开始" not in raw:
+            continue
+        mentioned = [f"T{n}" for n in re.findall(r"T(\d+)", raw)]
+        done = [t for t in dict.fromkeys(mentioned) if tasks.get(t) and status_icon(tasks[t]) == "✅"]
+        if done:
+            fail(
+                f"文档里仍写着「{'、'.join(done)} 未开始」，但任务状态表已标 ✅ —— "
+                f"同步这一行：{raw.strip()[:70]}"
+            )
+
+
 def collect_smoke_numbers(text: str) -> list[tuple[int, int, str]]:
     out = []
     for line in text.splitlines():
@@ -304,6 +318,7 @@ def main() -> int:
     check_stage_free(stages)
     check_stage_vs_tasks(stages, tasks)
     check_task_leftovers(tasks)
+    check_stale_task_mentions(doc_text, tasks)
     off_max, real_max = check_smoke_baseline(doc_text, agents_text, readme_text)
 
     smoke_count = None
