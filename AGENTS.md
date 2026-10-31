@@ -49,6 +49,8 @@ yunqi-hotel-pms/
 │  ├─ build_submission_docx.py 生成 Word 汇总（内嵌截图）
 │  ├─ build_seed_sql.py        生成 sql/03_seed.sql（30 客户/96 预订/48 入住/96 支付/57 服务明细，含冲突自检）
 │  ├─ smoke_web.py             Web 冒烟测试：默认离线 sqlite（自建 13 表+假数据），`--mode real` 走真库
+│  ├─ verify_docs05.py         docs/05 数字与库对账（只读，逐字复用 sql/04 的 Q1/Q3/Q4-b/Q5/Q6/Q7）
+│  ├─ diff_seed_vs_db.py       sql/03_seed.sql 与库逐行比对（只读，查演示库是否被测试写入污染）
 │  └─ verify_submission.py     两个交付件的结构与版式自检
 ├─ deliverables/                对外交付件（第一次提交）
 │  ├─ 第14组_酒店客房预订与入住管理系统.docx      文件名按给定方案名（内部项目名为云栖…）
@@ -98,7 +100,7 @@ yunqi-hotel-pms/
 - **权限**：`core.decorators.role_required(*roles)`（未登录跳登录页、角色不符 403）+ `core.roles.ROLE_HOME_URL_NAME` 决定三角色落地页；侧边栏由 `core.roles.NAV_SECTIONS` 按角色过滤、经 `core.context_processors.navigation` 注入。
 - **交互细节**：登出只接受 POST（GET 直接回登录页）；错误页 `handler403/404/500` 走 `core.views.errors`；模板 `partials/messages.html` 渲染 `messages`（`MESSAGE_TAGS` 把 error 映射成 `danger`）。
 - 数据库账号建议用 `sql/91_app_role.sql` 建的 `yunqi_app`（最小权限：`SELECT/INSERT/UPDATE/DELETE` + 序列 usage + 函数 execute，无 DDL），口令写进 `.env` 的 `DB_PASSWORD`。
-- **验证方式**：`python tools/smoke_web.py`（默认离线 sqlite：把 13 个模型临时置 `managed=True` 建表灌假数据，35 项断言，不依赖库口令；需 `PYTHONPATH` 同时含 `src` 与 `work`，Windows 下用分号分隔）与 `python tools/smoke_web.py --mode real`（真库 + 种子账号，先跑 `_preflight_real_db()`：基表数 / `django_session` / 种子账号 3/3 / EXCLUDE 条数，失败给中文排查提示）。两者当前分别为 **189/189（离线 sqlite）** 与 **131/131（真库只读）**（F01–F09 全部页面落地后）；真库**写入**路径另由 `work/check_f01_real.py`（房型与价格方案增删/23P01/RESTRICT 22 项）、`work/check_f04_real.py`（下单/确认/取消 15 项）、`work/check_f06_real.py`（入住/重复入住/续住 22 项）、`work/check_f07_real.py`（入住→结算→重复结算 26 项）`work/check_f08_real.py`（房态变更→触发器日志→维修区间→冲突拒绝→结束维修 22 项）与 `work/check_f09_real.py`（报表 4 张图逐项对 `sql/04_queries.sql` 的 Q3/Q4-b/Q5/Q6-b 共 21 项，只读）核对；写入类脚本都在事务内真实写入并核对触发器回写后强制回滚，不污染演示库。
+- **验证方式**：`python tools/smoke_web.py`（默认离线 sqlite：把 13 个模型临时置 `managed=True` 建表灌假数据，35 项断言，不依赖库口令；需 `PYTHONPATH` 同时含 `src` 与 `work`，Windows 下用分号分隔）与 `python tools/smoke_web.py --mode real`（真库 + 种子账号，先跑 `_preflight_real_db()`：基表数 / `django_session` / 种子账号 3/3 / EXCLUDE 条数，失败给中文排查提示）。两者当前分别为 **189/189（离线 sqlite）** 与 **131/131（真库只读）**（F01–F09 全部页面落地后）；真库**写入**路径另由 `work/check_f01_real.py`（房型与价格方案增删/23P01/RESTRICT 22 项）、`work/check_f04_real.py`（下单/确认/取消 15 项）、`work/check_f06_real.py`（入住/重复入住/续住 22 项）、`work/check_f07_real.py`（入住→结算→重复结算 26 项）`work/check_f08_real.py`（房态变更→触发器日志→维修区间→冲突拒绝→结束维修 22 项）与 `work/check_f09_real.py`（报表 4 张图逐项对 `sql/04_queries.sql` 的 Q3/Q4-b/Q5/Q6-b 共 21 项，只读）核对；写入类脚本都在事务内真实写入并核对触发器回写后强制回滚，不污染演示库。**数字对账**另有两个只读脚本：`tools/verify_docs05.py`（把 `sql/04_queries.sql` 的 Q1/Q3/Q4-b/Q5/Q6-a/Q6-b/Q7 逐字拿到库上跑，与 `docs/05` 逐项比对，当前 37 项全绿）与 `tools/diff_seed_vs_db.py`（种子 96 行 vs 库逐行比对，当前零差异）；演示库被写入污染时先看后者的报错行，再重跑 `sql/03_seed.sql` 恢复。
 - **统计口径唯一事实源是 `sql/04_queries.sql`**（2026-10-31 定）：F09 报表 4 张图分别对应 Q3（入住率，可售房夜扣维修/停用）/ Q4-b（按 `actual_checkout_at` 归月、押金不计、退款冲减）/ Q5（房型排行，订单数 + 实际房夜）/ Q6-b（来源取消率）；页面由 `src/core/views/reports.py` 手写 SQL 取数、离线 sqlite 走等价 Python 兜底，**禁止前端另算**。改口径先改 `sql/04`，再同步 `reports.py` 与 `work/check_f09_real.py`。
 
 ### 4.3 前端（AdminLTE 3.2 + Bootstrap 4.6）
