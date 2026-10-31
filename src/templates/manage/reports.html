@@ -1,0 +1,324 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}经营统计报表 · 云栖酒店客房预订与入住管理系统{% endblock %}
+{% block page_title %}经营统计报表{% endblock %}
+{% block breadcrumb_current %}统计报表{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card card-outline card-primary">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-filter mr-1"></i>统计区间</h3>
+        <div class="card-tools">
+          {% for quick in quick_ranges %}
+          <a class="btn btn-sm btn-outline-secondary"
+             href="?date_from={{ quick.from }}&date_to={{ quick.to }}{% if selected_room_type %}&room_type_id={{ selected_room_type.pk }}{% endif %}">{{ quick.label }}</a>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="card-body">
+        {% if errors %}
+        <div class="alert alert-warning">
+          <ul class="mb-0 pl-3">
+            {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        <form method="get" class="form-row align-items-end">
+          <div class="form-group col-md-3">
+            <label for="date_from">起始日期</label>
+            <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from|date:'Y-m-d' }}">
+          </div>
+          <div class="form-group col-md-3">
+            <label for="date_to">结束日期</label>
+            <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to|date:'Y-m-d' }}">
+          </div>
+          <div class="form-group col-md-3">
+            <label for="room_type_id">房型（只影响排行与明细）</label>
+            <select class="form-control" id="room_type_id" name="room_type_id">
+              <option value="">全部房型</option>
+              {% for room_type in room_types %}
+              <option value="{{ room_type.pk }}" {% if selected_room_type and selected_room_type.pk == room_type.pk %}selected{% endif %}>{{ room_type.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group col-md-3">
+            <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-search mr-1"></i>查询</button>
+          </div>
+        </form>
+        <p class="text-muted mb-0 small">
+          当前区间：{{ date_from|date:'Y-m-d' }} ~ {{ date_to|date:'Y-m-d' }}（{{ chart_data.range.from }} ~ {{ chart_data.range.to }}），
+          数据源：{% if chart_data.vendor == 'postgresql' %}真库手写 SQL{% else %}离线 sqlite（等价 Python 聚合，仅用于冒烟）{% endif %}。
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-info">
+      <div class="inner">
+        <h3>{{ chart_data.totals.reservations }}</h3>
+        <p>区间内预订数（含各种状态）</p>
+      </div>
+      <div class="icon"><i class="fas fa-clipboard-list"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-success">
+      <div class="inner">
+        <h3>{{ chart_data.totals.occupancy }}<sup style="font-size:20px">%</sup></h3>
+        <p>平均入住率（{{ chart_data.totals.sold_nights }}/{{ chart_data.totals.sellable_nights }} 房夜）</p>
+      </div>
+      <div class="icon"><i class="fas fa-percent"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-primary">
+      <div class="inner">
+        <h3>{{ chart_data.totals.net }}</h3>
+        <p>净收入（元，按退房结算日归月）</p>
+      </div>
+      <div class="icon"><i class="fas fa-coins"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-warning">
+      <div class="inner">
+        <h3>{% if chart_data.totals.cancel_rate is not None %}{{ chart_data.totals.cancel_rate }}<sup style="font-size:20px">%</sup>{% else %}—{% endif %}</h3>
+        <p>取消率（取消 {{ chart_data.totals.cancelled }} 单）</p>
+      </div>
+      <div class="icon"><i class="fas fa-ban"></i></div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card card-outline card-success">
+      <div class="card-header"><h3 class="card-title">① 各房型月度入住率（Q3）</h3></div>
+      <div class="card-body">
+        <div id="chart-occupancy" style="width:100%;height:320px;"></div>
+        <p class="text-muted small mb-0">
+          口径：已售房夜 ÷ 可售房夜；可售房夜已扣维修/停用（`room_block`）；离店日不计房晚。
+        </p>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card card-outline card-primary">
+      <div class="card-header"><h3 class="card-title">② 月度净收入（Q4-b）</h3></div>
+      <div class="card-body">
+        <div id="chart-revenue" style="width:100%;height:320px;"></div>
+        <p class="text-muted small mb-0">
+          口径：按退房结算日期归月，收入 = 房费 + 服务费，押金不计收入，退款冲减同月。
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card card-outline card-warning">
+      <div class="card-header"><h3 class="card-title">③ 房型排行（Q5，订单数 / 房夜数）</h3></div>
+      <div class="card-body">
+        <div id="chart-top-rooms" style="width:100%;height:320px;"></div>
+        <table class="table table-sm table-hover mt-3 mb-0">
+          <thead>
+            <tr><th>房型</th><th class="text-right">订单数</th><th class="text-right">房夜数</th><th class="text-right">计划房夜</th><th class="text-right">预订金额</th></tr>
+          </thead>
+          <tbody>
+            {% for row in chart_data.top_rooms %}
+            <tr>
+              <td>{{ row.room_type }}</td>
+              <td class="text-right">{{ row.orders }}</td>
+              <td class="text-right">{{ row.nights }}</td>
+              <td class="text-right">{{ row.planned_nights }}</td>
+              <td class="text-right">{{ row.amount|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-muted">该区间没有有效预订</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="text-muted small mb-0 mt-2">
+          口径：房夜数优先用实际入住区间（`check_in_record`），无入住记录时退回计划区间。
+        </p>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card card-outline card-danger">
+      <div class="card-header"><h3 class="card-title">④ 预订来源取消率（Q6-b）</h3></div>
+      <div class="card-body">
+        <div id="chart-sources" style="width:100%;height:320px;"></div>
+        <table class="table table-sm table-hover mt-3 mb-0">
+          <thead>
+            <tr><th>来源</th><th class="text-right">订单数</th><th class="text-right">取消</th><th class="text-right">未到店</th><th class="text-right">取消率</th></tr>
+          </thead>
+          <tbody>
+            {% for row in chart_data.sources %}
+            <tr>
+              <td>{{ row.label }}</td>
+              <td class="text-right">{{ row.total }}</td>
+              <td class="text-right">{{ row.cancelled }}</td>
+              <td class="text-right">{{ row.no_show }}</td>
+              <td class="text-right">{{ row.cancel_rate }}%</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-muted">该区间没有预订</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="text-muted small mb-0 mt-2">
+          口径：取消率 = 取消数 ÷ 同期订单数；未到店（no_show）计入分母不计入分子。
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12">
+    <div class="card card-outline card-secondary collapsed-card">
+      <div class="card-header">
+        <h3 class="card-title">入住率明细（Q3 原始行，报告截图用）</h3>
+        <div class="card-tools">
+          <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-plus"></i></button>
+        </div>
+      </div>
+      <div class="card-body table-responsive p-0" style="max-height:420px;">
+        <table class="table table-sm table-hover mb-0">
+          <thead>
+            <tr><th>月份</th><th>房型</th><th class="text-right">已售房夜</th><th class="text-right">可售房夜</th><th class="text-right">入住率</th></tr>
+          </thead>
+          <tbody>
+            {% for row in chart_data.occupancy.rows %}
+            <tr>
+              <td>{{ row.month }}</td>
+              <td>{{ row.room_type }}</td>
+              <td class="text-right">{{ row.sold }}</td>
+              <td class="text-right">{{ row.sellable }}</td>
+              <td class="text-right">{{ row.rate }}%</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-muted">该区间没有数据</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ chart_data|json_script:"report-data" }}
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'vendor/echarts/echarts.min.js' %}"></script>
+<script>
+(function () {
+  var data = JSON.parse(document.getElementById('report-data').textContent);
+  var palette = ['#17a2b8', '#28a745', '#007bff', '#ffc107', '#dc3545', '#6c757d'];
+
+  function chart(id) {
+    var el = document.getElementById(id);
+    if (!el || !window.echarts) { return null; }
+    return window.echarts.init(el);
+  }
+
+  // ① 各房型月度入住率（多折线）
+  var occupancy = chart('chart-occupancy');
+  if (occupancy) {
+    var series = Object.keys(data.occupancy.series).map(function (name, index) {
+      return {
+        name: name,
+        type: 'line',
+        smooth: true,
+        symbolSize: 6,
+        data: data.occupancy.series[name],
+        itemStyle: { color: palette[index % palette.length] }
+      };
+    });
+    occupancy.setOption({
+      tooltip: { trigger: 'axis', valueFormatter: function (v) { return v + '%'; } },
+      legend: { type: 'scroll', top: 0 },
+      grid: { left: 40, right: 16, top: 40, bottom: 30 },
+      xAxis: { type: 'category', data: data.occupancy.months },
+      yAxis: { type: 'value', axisLabel: { formatter: '{value}%' } },
+      series: series
+    });
+  }
+
+  // ② 月度净收入（柱 + 折线）
+  var revenue = chart('chart-revenue');
+  if (revenue) {
+    var months = data.revenue.rows.map(function (row) { return row.month; });
+    revenue.setOption({
+      tooltip: { trigger: 'axis' },
+      legend: { top: 0 },
+      grid: { left: 60, right: 16, top: 40, bottom: 30 },
+      xAxis: { type: 'category', data: months },
+      yAxis: { type: 'value', axisLabel: { formatter: '{value} 元' } },
+      series: [
+        { name: '净收入', type: 'bar', data: data.revenue.rows.map(function (r) { return r.net; }), itemStyle: { color: '#007bff' } },
+        { name: '收入', type: 'line', smooth: true, data: data.revenue.rows.map(function (r) { return r.income; }), itemStyle: { color: '#28a745' } },
+        { name: '退款', type: 'line', smooth: true, data: data.revenue.rows.map(function (r) { return r.refund; }), itemStyle: { color: '#dc3545' } }
+      ]
+    });
+  }
+
+  // ③ 房型排行（横向柱：订单数 + 房夜数）
+  var topRooms = chart('chart-top-rooms');
+  if (topRooms) {
+    var names = data.top_rooms.map(function (row) { return row.room_type; });
+    topRooms.setOption({
+      tooltip: { trigger: 'axis' },
+      legend: { top: 0 },
+      grid: { left: 100, right: 24, top: 40, bottom: 20 },
+      xAxis: { type: 'value' },
+      yAxis: { type: 'category', data: names },
+      series: [
+        { name: '订单数', type: 'bar', data: data.top_rooms.map(function (r) { return r.orders; }), itemStyle: { color: '#ffc107' } },
+        { name: '房夜数', type: 'bar', data: data.top_rooms.map(function (r) { return r.nights; }), itemStyle: { color: '#17a2b8' } }
+      ]
+    });
+  }
+
+  // ④ 来源取消率（饼：各来源订单数占比 + 取消数提示）
+  var sources = chart('chart-sources');
+  if (sources) {
+    sources.setOption({
+      tooltip: {
+        trigger: 'item',
+        formatter: function (p) {
+          var row = data.sources[p.dataIndex];
+          return row.label + '<br/>订单 ' + row.total + ' 单 · 取消 ' + row.cancelled + ' 单<br/>取消率 ' + row.cancel_rate + '%';
+        }
+      },
+      legend: { bottom: 0 },
+      series: [{
+        name: '预订来源',
+        type: 'pie',
+        radius: ['40%', '68%'],
+        avoidLabelOverlap: true,
+        label: { formatter: '{b}\n{c} 单' },
+        data: data.sources.map(function (row, index) {
+          return { value: row.total, name: row.label, itemStyle: { color: palette[index % palette.length] } };
+        })
+      }]
+    });
+  }
+
+  window.addEventListener('resize', function () {
+    [occupancy, revenue, topRooms, sources].forEach(function (instance) {
+      if (instance) { instance.resize(); }
+    });
+  });
+})();
+</script>
+{% endblock %}

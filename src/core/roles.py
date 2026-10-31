@@ -79,6 +79,8 @@ NAV_SECTIONS: tuple[NavSection, ...] = (
             NavItem("管理概览", "core:manage_home", "fas fa-tachometer-alt"),
             NavItem("房型与价格", "core:room_type_list", "fas fa-bed"),
             NavItem("客户一览", "core:customer_list", "fas fa-users"),
+            NavItem("预订总览", "core:reservation_list", "fas fa-list"),
+            NavItem("统计报表", "core:reports", "fas fa-chart-line"),
         ),
     ),
 )

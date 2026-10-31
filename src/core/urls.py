@@ -4,6 +4,8 @@ from __future__ import annotations
 from django.urls import path
 
 from .views import auth, board, checkin, checkout, home, manage, reservations, rooms
+from .views.reports import reports as reports_view
+from .views.reports import reservation_export, reservation_list
 
 app_name = "core"
 
@@ -43,4 +45,9 @@ urlpatterns = [
     path("manage/room-types/<int:pk>/edit/", manage.room_type_form, name="room_type_edit"),
     # P13 客户与账号一览
     path("manage/customers/", manage.customer_list, name="customer_list"),
+    # P11 经营统计报表（F09）
+    path("manage/reports/", reports_view, name="reports"),
+    # P12 预订总览（F05 管理员视角，只读 + 导出）
+    path("manage/reservations/", reservation_list, name="reservation_list"),
+    path("manage/reservations/export/", reservation_export, name="reservation_export"),
 ]

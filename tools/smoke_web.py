@@ -1009,6 +1009,83 @@ def main() -> int:
         check(real_rts.status_code == 200, "P10 真库房型列表 200", str(real_rts.status_code))
         check("高级大床房" in real_body or "标准间" in real_body, "P10 真库列表渲染真实房型")
 
+    # ---------------------------------------------------------------- P11 统计报表（F09）
+    reports_page = admin_client.get("/manage/reports/")
+    reports_body = reports_page.content.decode("utf-8")
+    check(reports_page.status_code == 200, "P11 管理员打开统计报表 200", str(reports_page.status_code))
+    check(
+        "经营统计报表" in reports_body and "入住率" in reports_body and "净收入" in reports_body,
+        "P11 渲染四块指标与图表卡",
+    )
+    for chart_id in ("chart-occupancy", "chart-revenue", "chart-top-rooms", "chart-sources"):
+        check(f'id="{chart_id}"' in reports_body, f"P11 图表容器 {chart_id} 存在")
+    check(
+        'id="report-data"' in reports_body and "echarts.min.js" in reports_body,
+        "P11 内嵌 chart_data 并引用本地 ECharts",
+    )
+    check(
+        reports_body.count("vendor/echarts/echarts.min.js") == 1
+        and "http://" not in reports_body.split("extra_scripts")[-1][:2000],
+        "P11 ECharts 走本地静态资源（无 CDN）",
+    )
+    check(
+        reception_client.get("/manage/reports/").status_code == 403,
+        "P11 前台访问统计报表得 403",
+    )
+    check(
+        customer_client.get("/manage/reports/").status_code == 403,
+        "P11 客户访问统计报表得 403",
+    )
+
+    ranged = admin_client.get(
+        "/manage/reports/", {"date_from": "2026-09-01", "date_to": "2027-01-31", "room_type_id": ""}
+    )
+    check(ranged.status_code == 200, "P11 指定区间查询 200", str(ranged.status_code))
+    bad_range = admin_client.get("/manage/reports/", {"date_from": "2027-01-31", "date_to": "2026-09-01"})
+    check(
+        bad_range.status_code == 200 and "入住日期" in bad_range.content.decode("utf-8"),
+        "P11 起止倒置给出中文提示并回落",
+    )
+
+    # ---------------------------------------------------------------- P12 预订总览（F05 管理员只读）
+    overview = admin_client.get("/manage/reservations/")
+    overview_body = overview.content.decode("utf-8")
+    check(overview.status_code == 200, "P12 管理员打开预订总览 200", str(overview.status_code))
+    check(
+        "预订总览" in overview_body and "导出当前筛选结果" in overview_body,
+        "P12 渲染标题与导出入口",
+    )
+    check(
+        overview_body.count("text-monospace") > 10,
+        "P12 渲染预订明细行",
+        str(overview_body.count("text-monospace")),
+    )
+    check(
+        reception_client.get("/manage/reservations/").status_code == 403,
+        "P12 前台访问预订总览得 403",
+    )
+    filtered = admin_client.get("/manage/reservations/", {"status": "checked_out"})
+    filtered_body = filtered.content.decode("utf-8")
+    check(filtered.status_code == 200 and "已退房" in filtered_body, "P12 按状态筛选 200")
+
+    export = admin_client.get("/manage/reservations/export/")
+    export_body = export.content
+    check(
+        export.status_code == 200
+        and "text/csv" in export.get("Content-Type", "")
+        and export_body.startswith("\ufeff".encode("utf-8")),
+        "P12 导出 CSV（带 BOM、text/csv）",
+        export.get("Content-Type", ""),
+    )
+    check(
+        "预订号".encode("utf-8") in export_body and "客户".encode("utf-8") in export_body,
+        "P12 CSV 含中文表头",
+    )
+    check(
+        reception_client.get("/manage/reservations/export/").status_code == 403,
+        "P12 前台访问导出得 403",
+    )
+
     # ---------------------------------------------------------------- 汇总
     failed = [r for r in results if not r[0]]
     print("\n" + "=" * 72)

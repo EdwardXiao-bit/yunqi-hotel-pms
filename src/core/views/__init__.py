@@ -6,6 +6,7 @@ from .checkout import checkout_detail
 from .errors import page_not_found, permission_denied, server_error
 from .home import customer_home, manage_home, reception_home
 from .manage import customer_list, room_type_form, room_type_list
+from .reports import reports, reservation_export, reservation_list
 from .reservations import (
     my_reservation_cancel,
     my_reservation_detail,
@@ -34,6 +35,9 @@ __all__ = [
     "room_type_list",
     "room_type_form",
     "customer_list",
+    "reports",
+    "reservation_list",
+    "reservation_export",
     "permission_denied",
     "page_not_found",
     "server_error",
