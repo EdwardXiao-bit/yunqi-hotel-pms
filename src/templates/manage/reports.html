@@ -3,237 +3,215 @@
 
 {% block title %}经营统计报表 · 云栖酒店客房预订与入住管理系统{% endblock %}
 {% block page_title %}经营统计报表{% endblock %}
-{% block page_subtitle %}四张图对应 sql/04_queries.sql 的 Q3 / Q4-b / Q5 / Q6-b · 口径与真实数据库一致{% endblock %}
 {% block breadcrumb_current %}统计报表{% endblock %}
-
-{% block page_actions %}
-  <span class="yq-hint d-none d-lg-inline mr-1">快捷区间</span>
-  {% for quick in quick_ranges %}
-    <a class="btn btn-sm {% if quick.from == chart_data.range.from and quick.to == chart_data.range.to %}btn-primary{% else %}btn-outline-secondary{% endif %}"
-       href="?date_from={{ quick.from }}&date_to={{ quick.to }}{% if selected_room_type %}&room_type_id={{ selected_room_type.pk }}{% endif %}">{{ quick.label }}</a>
-  {% endfor %}
-{% endblock %}
 
 {% block content %}
 <div class="row">
-  <div class="col-6 col-lg-3 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-clipboard-list' value=chart_data.totals.reservations unit='单' label='区间内预订数' hint='含全部状态' tone='info' %}
-  </div>
-  <div class="col-6 col-lg-3 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-percent' value=chart_data.totals.occupancy unit='%' label='平均入住率' hint='已售房夜 ÷ 可售房夜（扣维修/停用）' tone='success' %}
-  </div>
-  <div class="col-6 col-lg-3 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-coins' value=chart_data.totals.net unit='元' label='净收入' hint='按退房结算日归月，押金不计' tone='gold' %}
-  </div>
-  <div class="col-6 col-lg-3 mb-3">
-    {% if chart_data.totals.cancel_rate is not None %}
-      {% include 'partials/stat.html' with icon='fas fa-ban' value=chart_data.totals.cancel_rate unit='%' label='取消率' hint='取消数 ÷ 同期订单数' tone='warning' %}
-    {% else %}
-      {% include 'partials/stat.html' with icon='fas fa-ban' value='—' label='取消率' hint='区间内没有订单' tone='warning' %}
-    {% endif %}
-  </div>
-</div>
-
-<div class="yq-card">
-  <div class="yq-card-head">
-    <h2 class="yq-card-title"><i class="fas fa-filter"></i>统计区间</h2>
-    <span class="yq-hint">房型筛选只影响「房型排行」卡</span>
-  </div>
-  <div class="yq-card-body">
-    {% if errors %}
-      <div class="alert alert-warning">
-        <ul class="mb-0 pl-3">
-          {% for error in errors %}<li>{{ error }}</li>{% endfor %}
-        </ul>
-      </div>
-    {% endif %}
-    <form method="get" class="yq-toolbar">
-      <div class="yq-field" style="min-width:160px">
-        <label for="date_from">起始日期</label>
-        <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from|date:'Y-m-d' }}">
-      </div>
-      <div class="yq-field" style="min-width:160px">
-        <label for="date_to">结束日期</label>
-        <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to|date:'Y-m-d' }}">
-      </div>
-      <div class="yq-field" style="min-width:200px">
-        <label for="room_type_id">房型</label>
-        <select class="form-control" id="room_type_id" name="room_type_id">
-          <option value="">全部房型</option>
-          {% for room_type in room_types %}
-            <option value="{{ room_type.pk }}" {% if selected_room_type and selected_room_type.pk == room_type.pk %}selected{% endif %}>{{ room_type.name }}</option>
+  <div class="col-12">
+    <div class="card card-outline card-primary">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-filter mr-1"></i>统计区间</h3>
+        <div class="card-tools">
+          {% for quick in quick_ranges %}
+          <a class="btn btn-sm btn-outline-secondary"
+             href="?date_from={{ quick.from }}&date_to={{ quick.to }}{% if selected_room_type %}&room_type_id={{ selected_room_type.pk }}{% endif %}">{{ quick.label }}</a>
           {% endfor %}
-        </select>
-      </div>
-      <div class="yq-field">
-        <button type="submit" class="btn btn-primary"><i class="fas fa-search mr-1"></i>查询</button>
-      </div>
-    </form>
-    <div class="yq-hint mt-3">
-      当前区间：{{ date_from|date:'Y-m-d' }} ~ {{ date_to|date:'Y-m-d' }}（{{ chart_data.range.from }} ~ {{ chart_data.range.to }}），
-      数据源：{% if chart_data.vendor == 'postgresql' %}真库手写 SQL{% else %}离线 sqlite（等价 Python 聚合，仅用于冒烟）{% endif %}。
-    </div>
-  </div>
-</div>
-
-<div class="row">
-  <div class="col-lg-6">
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h2 class="yq-card-title"><i class="fas fa-chart-line"></i>① 各房型月度入住率（Q3）</h2>
-        <span class="yq-hint">口径：Q3 入住率，可售房夜扣维修 / 停用</span>
-      </div>
-      <div class="yq-card-body">
-        <div id="chart-occupancy" class="yq-chart is-tall"></div>
-        <div class="yq-hint mt-2">
-          口径：已售房夜 ÷ 可售房夜；可售房夜已扣维修 / 停用（<code>room_block</code>）；离店日不计房晚。
-          数据来源：<code>sql/04_queries.sql</code> Q3，由 <code>reports.py</code> 手写 SQL 取数，前端不另算。
         </div>
       </div>
-    </div>
-  </div>
-  <div class="col-lg-6">
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h2 class="yq-card-title"><i class="fas fa-chart-bar"></i>② 月度净收入（Q4-b）</h2>
-        <span class="yq-hint">口径：按退房结算日归月，押金不计、退款冲减</span>
-      </div>
-      <div class="yq-card-body">
-        <div id="chart-revenue" class="yq-chart is-tall"></div>
-        <div class="yq-hint mt-2">
-          口径：按 <code>actual_checkout_at</code> 归月，收入 = 房费 + 服务费，押金不计收入，退款冲减同月。
-          数据来源：<code>sql/04_queries.sql</code> Q4-b。
+      <div class="card-body">
+        {% if errors %}
+        <div class="alert alert-warning">
+          <ul class="mb-0 pl-3">
+            {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+          </ul>
         </div>
+        {% endif %}
+        <form method="get" class="form-row align-items-end">
+          <div class="form-group col-md-3">
+            <label for="date_from">起始日期</label>
+            <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from|date:'Y-m-d' }}">
+          </div>
+          <div class="form-group col-md-3">
+            <label for="date_to">结束日期</label>
+            <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to|date:'Y-m-d' }}">
+          </div>
+          <div class="form-group col-md-3">
+            <label for="room_type_id">房型（只影响排行与明细）</label>
+            <select class="form-control" id="room_type_id" name="room_type_id">
+              <option value="">全部房型</option>
+              {% for room_type in room_types %}
+              <option value="{{ room_type.pk }}" {% if selected_room_type and selected_room_type.pk == room_type.pk %}selected{% endif %}>{{ room_type.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group col-md-3">
+            <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-search mr-1"></i>查询</button>
+          </div>
+        </form>
+        <p class="text-muted mb-0 small">
+          当前区间：{{ date_from|date:'Y-m-d' }} ~ {{ date_to|date:'Y-m-d' }}（{{ chart_data.range.from }} ~ {{ chart_data.range.to }}），
+          数据源：{% if chart_data.vendor == 'postgresql' %}真库手写 SQL{% else %}离线 sqlite（等价 Python 聚合，仅用于冒烟）{% endif %}。
+        </p>
       </div>
     </div>
   </div>
 </div>
 
 <div class="row">
-  <div class="col-lg-6">
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h2 class="yq-card-title"><i class="fas fa-trophy"></i>③ 房型排行（Q5）</h2>
-        <span class="yq-hint">口径：订单数 + 实际房夜（无入住记录退回计划区间）</span>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-info">
+      <div class="inner">
+        <h3>{{ chart_data.totals.reservations }}</h3>
+        <p>区间内预订数（含各种状态）</p>
       </div>
-      <div class="yq-card-body">
-        <div id="chart-top-rooms" class="yq-chart is-tall"></div>
-        <div class="table-wrap mt-3">
-          <table class="table table-sm table-hover">
-            <thead>
-              <tr>
-                <th>房型</th>
-                <th class="text-right">订单数</th>
-                <th class="text-right">房夜数</th>
-                <th class="text-right">计划房夜</th>
-                <th class="text-right">预订金额</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in chart_data.top_rooms %}
-                <tr>
-                  <td>{{ row.room_type }}</td>
-                  <td class="text-right yq-num">{{ row.orders }}</td>
-                  <td class="text-right yq-num">{{ row.nights }}</td>
-                  <td class="text-right yq-num">{{ row.planned_nights }}</td>
-                  <td class="text-right yq-amount">{{ row.amount|floatformat:2 }}</td>
-                </tr>
-              {% empty %}
-                <tr><td colspan="5" class="text-center yq-muted py-3">该区间没有有效预订</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        <div class="yq-hint mt-2">
-          口径：房夜数优先用实际入住区间（<code>check_in_record</code>），无入住记录时退回计划区间。
-          数据来源：<code>sql/04_queries.sql</code> Q5。
-        </div>
+      <div class="icon"><i class="fas fa-clipboard-list"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-success">
+      <div class="inner">
+        <h3>{{ chart_data.totals.occupancy }}<sup style="font-size:20px">%</sup></h3>
+        <p>平均入住率（{{ chart_data.totals.sold_nights }}/{{ chart_data.totals.sellable_nights }} 房夜）</p>
+      </div>
+      <div class="icon"><i class="fas fa-percent"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-primary">
+      <div class="inner">
+        <h3>{{ chart_data.totals.net }}</h3>
+        <p>净收入（元，按退房结算日归月）</p>
+      </div>
+      <div class="icon"><i class="fas fa-coins"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-warning">
+      <div class="inner">
+        <h3>{% if chart_data.totals.cancel_rate is not None %}{{ chart_data.totals.cancel_rate }}<sup style="font-size:20px">%</sup>{% else %}—{% endif %}</h3>
+        <p>取消率（取消 {{ chart_data.totals.cancelled }} 单）</p>
+      </div>
+      <div class="icon"><i class="fas fa-ban"></i></div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card card-outline card-success">
+      <div class="card-header"><h3 class="card-title">① 各房型月度入住率（Q3）</h3></div>
+      <div class="card-body">
+        <div id="chart-occupancy" style="width:100%;height:320px;"></div>
+        <p class="text-muted small mb-0">
+          口径：已售房夜 ÷ 可售房夜；可售房夜已扣维修/停用（`room_block`）；离店日不计房晚。
+        </p>
       </div>
     </div>
   </div>
   <div class="col-lg-6">
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h2 class="yq-card-title"><i class="fas fa-chart-pie"></i>④ 预订来源取消率（Q6-b）</h2>
-        <span class="yq-hint">口径：取消数 ÷ 同期订单数，未到店计入分母</span>
-      </div>
-      <div class="yq-card-body">
-        <div id="chart-sources" class="yq-chart"></div>
-        <div class="table-wrap mt-3">
-          <table class="table table-sm table-hover">
-            <thead>
-              <tr>
-                <th>来源</th>
-                <th class="text-right">订单数</th>
-                <th class="text-right">取消</th>
-                <th class="text-right">未到店</th>
-                <th class="text-right">取消率</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in chart_data.sources %}
-                <tr>
-                  <td>{{ row.label }}</td>
-                  <td class="text-right yq-num">{{ row.total }}</td>
-                  <td class="text-right yq-num">{{ row.cancelled }}</td>
-                  <td class="text-right yq-num">{{ row.no_show }}</td>
-                  <td class="text-right yq-num">{{ row.cancel_rate }}%</td>
-                </tr>
-              {% empty %}
-                <tr><td colspan="5" class="text-center yq-muted py-3">该区间没有预订</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        <div class="yq-hint mt-2">
-          口径：取消率 = 取消数 ÷ 同期订单数；未到店（<code>no_show</code>）计入分母不计入分子。
-          数据来源：<code>sql/04_queries.sql</code> Q6-b。
-        </div>
+    <div class="card card-outline card-primary">
+      <div class="card-header"><h3 class="card-title">② 月度净收入（Q4-b）</h3></div>
+      <div class="card-body">
+        <div id="chart-revenue" style="width:100%;height:320px;"></div>
+        <p class="text-muted small mb-0">
+          口径：按退房结算日期归月，收入 = 房费 + 服务费，押金不计收入，退款冲减同月。
+        </p>
       </div>
     </div>
   </div>
 </div>
 
-<div class="yq-card">
-  <div class="yq-card-head">
-    <h2 class="yq-card-title"><i class="fas fa-table"></i>入住率明细（Q3 原始行）</h2>
-    <span class="yq-hint">报告截图用 · 共 {{ chart_data.occupancy.rows|length }} 行</span>
-  </div>
-  <div class="yq-card-body">
-    <details>
-      <summary class="yq-hint" style="cursor:pointer">展开 / 收起明细表</summary>
-      <div class="table-wrap mt-2">
-        <table class="table table-sm table-hover">
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card card-outline card-warning">
+      <div class="card-header"><h3 class="card-title">③ 房型排行（Q5，订单数 / 房夜数）</h3></div>
+      <div class="card-body">
+        <div id="chart-top-rooms" style="width:100%;height:320px;"></div>
+        <table class="table table-sm table-hover mt-3 mb-0">
           <thead>
+            <tr><th>房型</th><th class="text-right">订单数</th><th class="text-right">房夜数</th><th class="text-right">计划房夜</th><th class="text-right">预订金额</th></tr>
+          </thead>
+          <tbody>
+            {% for row in chart_data.top_rooms %}
             <tr>
-              <th style="width:110px">月份</th>
-              <th>房型</th>
-              <th class="text-right" style="width:110px">已售房夜</th>
-              <th class="text-right" style="width:110px">可售房夜</th>
-              <th class="text-right" style="width:190px">入住率</th>
+              <td>{{ row.room_type }}</td>
+              <td class="text-right">{{ row.orders }}</td>
+              <td class="text-right">{{ row.nights }}</td>
+              <td class="text-right">{{ row.planned_nights }}</td>
+              <td class="text-right">{{ row.amount|floatformat:2 }}</td>
             </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-muted">该区间没有有效预订</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="text-muted small mb-0 mt-2">
+          口径：房夜数优先用实际入住区间（`check_in_record`），无入住记录时退回计划区间。
+        </p>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card card-outline card-danger">
+      <div class="card-header"><h3 class="card-title">④ 预订来源取消率（Q6-b）</h3></div>
+      <div class="card-body">
+        <div id="chart-sources" style="width:100%;height:320px;"></div>
+        <table class="table table-sm table-hover mt-3 mb-0">
+          <thead>
+            <tr><th>来源</th><th class="text-right">订单数</th><th class="text-right">取消</th><th class="text-right">未到店</th><th class="text-right">取消率</th></tr>
+          </thead>
+          <tbody>
+            {% for row in chart_data.sources %}
+            <tr>
+              <td>{{ row.label }}</td>
+              <td class="text-right">{{ row.total }}</td>
+              <td class="text-right">{{ row.cancelled }}</td>
+              <td class="text-right">{{ row.no_show }}</td>
+              <td class="text-right">{{ row.cancel_rate }}%</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-muted">该区间没有预订</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="text-muted small mb-0 mt-2">
+          口径：取消率 = 取消数 ÷ 同期订单数；未到店（no_show）计入分母不计入分子。
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12">
+    <div class="card card-outline card-secondary collapsed-card">
+      <div class="card-header">
+        <h3 class="card-title">入住率明细（Q3 原始行，报告截图用）</h3>
+        <div class="card-tools">
+          <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-plus"></i></button>
+        </div>
+      </div>
+      <div class="card-body table-responsive p-0" style="max-height:420px;">
+        <table class="table table-sm table-hover mb-0">
+          <thead>
+            <tr><th>月份</th><th>房型</th><th class="text-right">已售房夜</th><th class="text-right">可售房夜</th><th class="text-right">入住率</th></tr>
           </thead>
           <tbody>
             {% for row in chart_data.occupancy.rows %}
-              <tr>
-                <td class="text-monospace">{{ row.month }}</td>
-                <td>{{ row.room_type }}</td>
-                <td class="text-right yq-num">{{ row.sold }}</td>
-                <td class="text-right yq-num">{{ row.sellable }}</td>
-                <td class="text-right">
-                  <div class="d-flex align-items-center justify-content-end" style="gap:8px">
-                    <div class="yq-bar" style="width:90px"><span style="width:{{ row.rate }}%"></span></div>
-                    <span class="yq-num" style="min-width:52px">{{ row.rate }}%</span>
-                  </div>
-                </td>
-              </tr>
+            <tr>
+              <td>{{ row.month }}</td>
+              <td>{{ row.room_type }}</td>
+              <td class="text-right">{{ row.sold }}</td>
+              <td class="text-right">{{ row.sellable }}</td>
+              <td class="text-right">{{ row.rate }}%</td>
+            </tr>
             {% empty %}
-              <tr><td colspan="5" class="text-center yq-muted py-3">该区间没有数据</td></tr>
+            <tr><td colspan="5" class="text-center text-muted">该区间没有数据</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-    </details>
+    </div>
   </div>
 </div>
 

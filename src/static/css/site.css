@@ -1,44 +1,10 @@
-/* 云栖酒店 PMS —— 统一视觉层
- *
- * 约定：
- *  1) 只覆盖外观，不动 AdminLTE 的栅格与组件行为；主色仍走 AdminLTE（答辩截图一致）。
- *  2) 新增组件统一用 yq- 前缀，避免与 AdminLTE/Bootstrap 类名冲突。
- *  3) 颜色全部走 CSS 变量，改主题只改 :root。
- */
+/* 云栖酒店 PMS —— 只放少量覆盖样式，不覆盖 AdminLTE 主色（答辩截图统一） */
 
 :root {
   --yunqi-font: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC",
     "Source Han Sans SC", "WenQuanYi Micro Hei", "Segoe UI", Arial, sans-serif;
-
-  /* 品牌色：深海蓝绿 + 香槟金，酒店场景稳重不过度鲜艳 */
-  --yq-ink: #14313f;
-  --yq-primary: #14506b;
-  --yq-primary-soft: #e7eff4;
-  --yq-gold: #b8894a;
-  --yq-gold-soft: #f6efe2;
-
-  /* 语义色 */
-  --yq-success: #2f7d5d;
-  --yq-success-soft: #e6f2ec;
-  --yq-warning: #a9761c;
-  --yq-warning-soft: #fbf1de;
-  --yq-danger: #b03a3a;
-  --yq-danger-soft: #f9e8e8;
-  --yq-info: #2c6e8f;
-  --yq-info-soft: #e6f0f6;
-  --yq-neutral: #6b7a86;
-  --yq-neutral-soft: #eef1f4;
-
-  /* 版面 */
-  --yq-line: #e2e8ec;
-  --yq-bg: #f4f6f8;
-  --yq-muted: #6b7a86;
-  --yq-radius: 10px;
-  --yq-shadow: 0 1px 2px rgba(18, 62, 82, 0.06);
-  --yq-shadow-lg: 0 8px 24px rgba(18, 62, 82, 0.10);
 }
 
-/* ---------- 基础排版 ---------- */
 body,
 h1, h2, h3, h4, h5, h6,
 .table,
@@ -52,612 +18,82 @@ h1, h2, h3, h4, h5, h6,
 
 body {
   font-size: 14px;
-  color: #22333d;
-  background-color: var(--yq-bg);
 }
 
-a {
-  color: var(--yq-primary);
-}
-
-a:hover {
-  color: #0d3c51;
-}
-
-.content-wrapper {
-  background-color: var(--yq-bg);
-}
-
-/* 金额/房号/编号：等宽 + 表格数字对齐 */
-.text-monospace,
-code,
-pre {
-  font-family: Consolas, "Cascadia Mono", "Courier New", monospace;
-}
-
-code {
-  color: #a03c52;
-  background-color: #fbf1f3;
-  padding: 0.05rem 0.28rem;
-  border-radius: 4px;
-}
-
-.yq-num {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
-}
-
-.yq-amount {
-  font-family: Consolas, "Cascadia Mono", "Courier New", monospace;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.yq-muted {
-  color: var(--yq-muted);
-}
-
-.yq-hint {
-  font-size: 0.8rem;
-  color: var(--yq-muted);
-  line-height: 1.6;
-}
-
-/* ---------- 页面头部：标题 + 说明 + 右侧操作区 ---------- */
-.yq-page-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin: 2px 0 18px;
-}
-
-.yq-page-head h1 {
-  font-size: 1.45rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  margin: 0;
-  color: var(--yq-ink);
-}
-
-.yq-page-head .yq-sub {
-  margin-top: 5px;
-  font-size: 0.84rem;
-  color: var(--yq-muted);
-}
-
-.yq-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* ---------- 卡片 ---------- */
-.yq-card {
-  background: #fff;
-  border: 1px solid var(--yq-line);
-  border-radius: var(--yq-radius);
-  box-shadow: var(--yq-shadow);
-  margin-bottom: 16px;
-}
-
-.yq-card > .yq-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 13px 18px;
-  border-bottom: 1px solid var(--yq-line);
-}
-
-.yq-card-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--yq-ink);
-}
-
-.yq-card-title i {
-  color: var(--yq-primary);
-  opacity: 0.85;
-}
-
-.yq-card-body {
-  padding: 16px 18px;
-}
-
-.yq-card-body.is-tight {
-  padding: 0;
-}
-
-.yq-card-foot {
-  padding: 11px 18px;
-  border-top: 1px solid var(--yq-line);
-  background: #fbfcfd;
-  border-radius: 0 0 var(--yq-radius) var(--yq-radius);
-}
-
-/* AdminLTE 原生 card 也统一圆角与描边，避免页面里两种卡片混用 */
-.card {
-  border: 1px solid var(--yq-line);
-  border-radius: var(--yq-radius);
-  box-shadow: var(--yq-shadow);
-}
-
-.card-header {
-  border-bottom: 1px solid var(--yq-line);
-  background-color: #fff;
-}
-
-.card-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--yq-ink);
-}
-
-.card-outline.card-primary {
-  border-top: 3px solid var(--yq-primary);
-}
-
-/* ---------- 指标卡 ---------- */
-.yq-stat {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  background: #fff;
-  border: 1px solid var(--yq-line);
-  border-radius: var(--yq-radius);
-  box-shadow: var(--yq-shadow);
-  height: 100%;
-}
-
-.yq-stat .yq-stat-icon {
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  background: var(--yq-primary-soft);
-  color: var(--yq-primary);
-}
-
-.yq-stat .yq-stat-body {
-  min-width: 0;
-}
-
-.yq-stat .yq-stat-value {
-  font-size: 1.42rem;
-  font-weight: 700;
-  line-height: 1.15;
-  color: var(--yq-ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.yq-stat .yq-stat-value small {
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--yq-muted);
-  margin-left: 2px;
-}
-
-.yq-stat .yq-stat-label {
-  font-size: 0.79rem;
-  color: var(--yq-muted);
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.yq-stat .yq-stat-hint {
-  font-size: 0.74rem;
-  color: var(--yq-neutral);
-  margin-top: 2px;
-}
-
-.yq-stat.is-success .yq-stat-icon { background: var(--yq-success-soft); color: var(--yq-success); }
-.yq-stat.is-warning .yq-stat-icon { background: var(--yq-warning-soft); color: var(--yq-warning); }
-.yq-stat.is-danger  .yq-stat-icon { background: var(--yq-danger-soft);  color: var(--yq-danger); }
-.yq-stat.is-info    .yq-stat-icon { background: var(--yq-info-soft);    color: var(--yq-info); }
-.yq-stat.is-gold    .yq-stat-icon { background: var(--yq-gold-soft);    color: var(--yq-gold); }
-.yq-stat.is-neutral .yq-stat-icon { background: var(--yq-neutral-soft); color: var(--yq-neutral); }
-
-/* 旧的 small-box 仍兼容：统一圆角与阴影 */
-.small-box {
-  border-radius: var(--yq-radius);
-  box-shadow: var(--yq-shadow);
-  margin-bottom: 16px;
-}
-
-.small-box .inner h3 {
-  font-variant-numeric: tabular-nums;
-}
-
-/* ---------- 工具条 / 表单 ---------- */
-.yq-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-  align-items: flex-end;
-}
-
-.yq-field {
-  margin-bottom: 0;
-}
-
-.yq-field > label {
-  display: block;
-  font-size: 0.76rem;
-  color: var(--yq-muted);
-  margin-bottom: 4px;
-  letter-spacing: 0.02em;
-}
-
-.yq-field .form-control,
-.yq-toolbar .form-control {
-  height: calc(1.6em + 0.7rem + 2px);
-  font-size: 0.86rem;
-  border-color: #d5dee4;
-  border-radius: 8px;
-}
-
-.yq-toolbar select.form-control {
-  padding-top: 0.2rem;
-  padding-bottom: 0.2rem;
-}
-
-.form-control:focus {
-  border-color: #7fa9bd;
-  box-shadow: 0 0 0 0.15rem rgba(20, 80, 107, 0.12);
-}
-
-.form-control::placeholder {
-  color: #a9b6c0;
-}
-
-.yq-toolbar .btn {
-  height: calc(1.6em + 0.7rem + 2px);
-  padding-top: 0;
-  padding-bottom: 0;
-  display: inline-flex;
-  align-items: center;
-}
-
-/* ---------- 按钮 ---------- */
-.btn {
-  border-radius: 8px;
-}
-
-.btn-sm {
-  border-radius: 7px;
-}
-
-.btn-primary {
-  background-color: var(--yq-primary);
-  border-color: var(--yq-primary);
-}
-
-.btn-primary:hover,
-.btn-primary:focus,
-.btn-primary:active,
-.btn-primary:not(:disabled):not(.disabled):active {
-  background-color: #0f3f56;
-  border-color: #0f3f56;
-}
-
-.btn-outline-primary {
-  color: var(--yq-primary);
-  border-color: #a9c3d1;
-}
-
-.btn-outline-primary:hover {
-  background-color: var(--yq-primary);
-  border-color: var(--yq-primary);
-}
-
-.btn-link {
-  color: var(--yq-primary);
-}
-
-/* ---------- 表格 ---------- */
-.table {
-  margin-bottom: 0;
-}
-
+/* 中文表格更紧凑、数字右对齐好读 */
 .table-sm td,
 .table-sm th {
-  padding: 0.5rem 0.6rem;
+  padding: 0.45rem 0.55rem;
   vertical-align: middle;
 }
 
 .table thead th {
   font-weight: 600;
-  font-size: 0.79rem;
-  color: #3d4d59;
-  background-color: #f7f9fb;
-  border-bottom: 1px solid var(--yq-line);
-  white-space: nowrap;
+  color: #495057;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
 }
 
-.table td,
-.table th {
-  border-color: #eef2f5;
+/* 金额/房号等用等宽字体，表格对齐更整齐 */
+.text-monospace,
+code {
+  font-family: Consolas, "Cascadia Mono", "Courier New", monospace;
 }
 
-.table-hover tbody tr:hover {
-  background-color: #f8fbfd;
+code {
+  color: #c7254e;
+  background-color: #f9f2f4;
+  padding: 0.05rem 0.25rem;
+  border-radius: 3px;
 }
 
-.table-bordered {
-  border-color: var(--yq-line);
-}
-
-.table tfoot td,
-.table tfoot th {
-  background-color: #fbfcfd;
-  font-weight: 600;
-}
-
-.table-wrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* 表格里的迷你进度条（入住率等） */
-.yq-bar {
-  position: relative;
-  height: 7px;
-  background: #edf1f4;
-  border-radius: 999px;
-  overflow: hidden;
-  min-width: 64px;
-}
-
-.yq-bar > span {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #2c6e8f, #4a97b8);
-  border-radius: 999px;
-}
-
-/* ---------- 状态徽章（房态 / 订单态 / 支付方式） ---------- */
-.badge {
-  font-weight: 500;
-  padding: 0.3em 0.55em;
-  border-radius: 999px;
-}
-
-.yq-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  font-size: 0.76rem;
-  font-weight: 500;
-  line-height: 1.4;
-  white-space: nowrap;
-  border: 1px solid transparent;
-}
-
-.yq-chip i {
-  font-size: 0.72rem;
-}
-
-.yq-chip.is-success { background: var(--yq-success-soft); color: var(--yq-success); border-color: #cfe6db; }
-.yq-chip.is-warning { background: var(--yq-warning-soft); color: var(--yq-warning); border-color: #ecdcbe; }
-.yq-chip.is-danger  { background: var(--yq-danger-soft);  color: var(--yq-danger);  border-color: #f0cccc; }
-.yq-chip.is-info    { background: var(--yq-info-soft);    color: var(--yq-info);    border-color: #cfe0ea; }
-.yq-chip.is-primary { background: var(--yq-primary-soft); color: var(--yq-primary); border-color: #cbdee7; }
-.yq-chip.is-gold    { background: var(--yq-gold-soft);    color: var(--yq-gold);    border-color: #e8d8bd; }
-.yq-chip.is-neutral { background: var(--yq-neutral-soft); color: var(--yq-neutral); border-color: #dbe2e8; }
-
-/* 兼容 Bootstrap 徽章在表格里的观感 */
-.badge-success { background-color: var(--yq-success); }
-.badge-warning { background-color: var(--yq-warning); }
-.badge-danger  { background-color: var(--yq-danger); }
-.badge-info    { background-color: var(--yq-info); }
-.badge-secondary { background-color: var(--yq-neutral); }
-
-/* ---------- 空状态 ---------- */
-.yq-empty {
-  text-align: center;
-  padding: 36px 18px;
-  color: var(--yq-muted);
-}
-
-.yq-empty > i {
-  display: block;
-  font-size: 1.9rem;
-  opacity: 0.35;
-  margin-bottom: 10px;
-}
-
-.yq-empty .yq-empty-title {
-  font-size: 0.92rem;
-  color: #42525e;
-  margin-bottom: 4px;
-}
-
-.yq-empty .yq-empty-hint {
-  font-size: 0.8rem;
-  color: var(--yq-muted);
-}
-
-/* ---------- 侧边栏 / 顶栏 ---------- */
-.main-sidebar {
-  background-color: #10313f;
-}
-
-.main-sidebar .brand-link {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
+/* 侧边栏：品牌区与中文字号 */
 .main-sidebar .brand-text {
-  font-size: 1.02rem;
+  font-size: 1.05rem;
   letter-spacing: 0.02em;
-  font-weight: 600;
 }
 
 .main-sidebar .nav-header {
-  font-size: 0.74rem;
-  letter-spacing: 0.1em;
-  color: rgba(255, 255, 255, 0.42);
-  padding-left: 0.9rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
 }
 
 .nav-sidebar .nav-link p {
-  font-size: 0.9rem;
+  font-size: 0.92rem;
 }
 
-.nav-sidebar .nav-link.active {
-  background-color: rgba(255, 255, 255, 0.10);
-  box-shadow: inset 3px 0 0 var(--yq-gold);
-}
-
-.nav-sidebar .nav-link.active p,
-.nav-sidebar .nav-link.active i {
-  color: #fff;
+/* 页面标题 */
+.content-header h1 {
+  font-size: 1.35rem;
   font-weight: 600;
 }
 
-.nav-sidebar .nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.06);
-}
-
-.main-header {
-  border-bottom: 1px solid var(--yq-line);
-}
-
-.navbar-nav .nav-link {
-  color: #33454f;
-}
-
-/* ---------- 消息条 ---------- */
-.alert {
-  border-width: 0 0 0 4px;
-  border-radius: 8px;
-  box-shadow: var(--yq-shadow);
-  font-size: 0.88rem;
-}
-
-.alert-success { border-left-color: var(--yq-success); background: var(--yq-success-soft); color: #24624a; }
-.alert-danger,
-.alert-error   { border-left-color: var(--yq-danger); background: var(--yq-danger-soft); color: #8c2f2f; }
-.alert-warning { border-left-color: var(--yq-warning); background: var(--yq-warning-soft); color: #7f5a14; }
-.alert-info    { border-left-color: var(--yq-info); background: var(--yq-info-soft); color: #235a75; }
-
-/* ---------- 分页 ---------- */
-.pagination {
-  margin-bottom: 0;
-}
-
-.page-link {
-  border-radius: 8px !important;
-  margin: 0 2px;
-  color: var(--yq-primary);
-  border-color: var(--yq-line);
-}
-
-.page-item.active .page-link {
-  background-color: var(--yq-primary);
-  border-color: var(--yq-primary);
-}
-
-/* ---------- 登录页 ---------- */
+/* 登录页：深色渐变背景 + 卡片阴影，不依赖外部图片 */
 .login-bg {
-  background:
-    radial-gradient(1200px 600px at 15% 10%, rgba(184, 137, 74, 0.22), transparent 60%),
-    linear-gradient(135deg, #0d2c3b 0%, #14506b 55%, #20657f 100%);
+  background: linear-gradient(135deg, #12344d 0%, #1f4e6b 45%, #2a6f8f 100%);
   min-height: 100vh;
 }
 
 .login-page .login-logo a {
   color: #ffffff;
-  font-size: 1.85rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: 2rem;
 }
 
 .login-page .login-logo p {
-  color: rgba(255, 255, 255, 0.72) !important;
-  font-size: 0.84rem;
-  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.75) !important;
 }
 
 .login-page .card {
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: var(--yq-shadow-lg);
+  border-radius: 0.5rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
 }
 
 .login-box-msg {
-  font-size: 0.88rem;
-  color: var(--yq-muted);
+  font-size: 0.9rem;
 }
 
-.login-card-body {
-  border-radius: 12px;
-}
-
-/* ---------- 图表容器 ---------- */
-.yq-chart {
-  width: 100%;
-  height: 300px;
-}
-
-.yq-chart.is-tall {
-  height: 340px;
-}
-
-/* ---------- 页脚 ---------- */
-.main-footer {
-  border-top: 1px solid var(--yq-line);
-  background: #fff;
-  font-size: 0.8rem;
-  color: var(--yq-muted);
-}
-
-/* ---------- 响应式 ---------- */
-@media (max-width: 767.98px) {
-  .yq-page-head {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .yq-stat .yq-stat-value {
-    font-size: 1.2rem;
-  }
-
-  .content-header {
-    padding: 10px 0.5rem 0;
-  }
-
-  .card-body {
-    padding: 0.85rem;
-  }
-}
-
-@media print {
-  .main-sidebar,
-  .main-header,
-  .main-footer,
-  .yq-actions,
-  .btn {
-    display: none !important;
-  }
-
-  .content-wrapper {
-    margin-left: 0 !important;
-  }
+/* 表格里的状态徽章统一高度 */
+.badge {
+  font-weight: 500;
+  padding: 0.32em 0.55em;
 }

@@ -1,200 +1,149 @@
 {% extends 'base.html' %}
 {% block title %}前台工作台 · 云栖酒店{% endblock %}
 {% block page_title %}前台工作台{% endblock %}
-{% block page_subtitle %}今日到店、在住与待清洁一屏掌握；办理入住不写房态，房态统一在看板维护{% endblock %}
-{% block breadcrumb_current %}前台作业 / 工作台{% endblock %}
-
-{% block page_actions %}
-<a href="{% url 'core:checkin_new' %}" class="btn btn-primary btn-sm">
-  <i class="fas fa-sign-in-alt mr-1"></i>入住办理
-</a>
-<a href="{% url 'core:room_board' %}" class="btn btn-outline-primary btn-sm">
-  <i class="fas fa-th-large mr-1"></i>房态看板
-</a>
-{% endblock %}
+{% block breadcrumb_current %}前台作业{% endblock %}
 
 {% block content %}
 <div class="row">
-  <div class="col-xl-3 col-md-6 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-plane-arrival' value=arrivals_count unit='单' label='今日到店' hint='已确认，待办理入住' tone='info' %}
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-info">
+      <div class="inner"><h3>{{ arrivals_count }}</h3><p>今日到店</p></div>
+      <div class="icon"><i class="fas fa-plane-arrival"></i></div>
+    </div>
   </div>
-  <div class="col-xl-3 col-md-6 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-key' value=in_house_count unit='间' label='在住客人' hint='押金已收，待退房结算' tone='success' %}
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-success">
+      <div class="inner"><h3>{{ in_house_count }}</h3><p>在住</p></div>
+      <div class="icon"><i class="fas fa-key"></i></div>
+    </div>
   </div>
-  <div class="col-xl-3 col-md-6 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-hourglass-half' value=pending_count unit='单' label='待确认预订' hint='确认后才会占房' tone='warning' %}
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-warning">
+      <div class="inner"><h3>{{ pending_count }}</h3><p>待确认预订</p></div>
+      <div class="icon"><i class="fas fa-hourglass-half"></i></div>
+    </div>
   </div>
-  <div class="col-xl-3 col-md-6 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-broom' value=room_status.cleaning|default:0 unit='间' label='待清洁' hint='清洁完成请到看板标记' tone='gold' %}
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-secondary">
+      <div class="inner"><h3>{{ room_status.cleaning|default:0 }}</h3><p>待清洁房间</p></div>
+      <div class="icon"><i class="fas fa-broom"></i></div>
+    </div>
   </div>
 </div>
 
 <div class="row">
-  <div class="col-xl-7">
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h3 class="yq-card-title"><i class="fas fa-plane-arrival"></i>今日到店（{{ today|date:'Y-m-d' }}）</h3>
-        <span class="yq-chip is-info">{{ arrivals_count }} 单待办</span>
+  <div class="col-lg-7">
+    <div class="card card-outline card-info">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-plane-arrival mr-1"></i>今日到店（{{ today|date:'Y-m-d' }}）</h3>
+        <div class="card-tools"><span class="badge badge-info">{{ arrivals_count }} 单</span></div>
       </div>
-      <div class="yq-card-body is-tight">
+      <div class="card-body p-0">
         {% if arrivals %}
-        <div class="table-wrap">
-          <table class="table table-sm table-hover mb-0">
-            <thead>
-              <tr>
-                <th>预订号</th><th>客户</th><th>房号</th><th>房型</th>
-                <th class="text-right">人数</th><th>状态</th><th class="text-right">操作</th>
-              </tr>
-            </thead>
+          <table class="table table-hover table-sm mb-0">
+            <thead><tr><th>预订号</th><th>客户</th><th>房号</th><th>房型</th><th class="text-right">人数</th><th>状态</th></tr></thead>
             <tbody>
               {% for r in arrivals %}
-              <tr>
-                <td class="text-monospace">{{ r.reservation_no }}</td>
-                <td>
-                  {{ r.customer.name }}
-                  <span class="yq-muted small text-monospace">· {{ r.customer.phone }}</span>
-                </td>
-                <td class="text-monospace">{{ r.room.room_no }}</td>
-                <td class="yq-muted">{{ r.room.room_type.name }}</td>
-                <td class="text-right">{{ r.guest_count }}</td>
-                <td><span class="yq-chip is-info">{{ r.get_status_display }}</span></td>
-                <td class="text-right text-nowrap">
-                  <a href="{% url 'core:checkin_new' %}?reservation_id={{ r.pk }}" class="btn btn-sm btn-primary">
-                    <i class="fas fa-sign-in-alt mr-1"></i>办理
-                  </a>
-                </td>
-              </tr>
+                <tr>
+                  <td class="text-monospace">{{ r.reservation_no }}</td>
+                  <td>{{ r.customer.name }}<span class="text-muted small"> · {{ r.customer.phone }}</span></td>
+                  <td>{{ r.room.room_no }}</td>
+                  <td class="text-muted">{{ r.room.room_type.name }}</td>
+                  <td class="text-right">{{ r.guest_count }}</td>
+                  <td><span class="badge badge-info">{{ r.get_status_display }}</span></td>
+                </tr>
               {% endfor %}
             </tbody>
           </table>
-        </div>
         {% else %}
-          {% include 'partials/empty_state.html' with icon='far fa-check-circle' title='今天没有待入住的已确认预订' hint='新预订确认后会出现在这里' %}
+          <div class="p-3 text-muted"><i class="far fa-check-circle mr-1"></i>今天没有待入住的已确认预订。</div>
         {% endif %}
       </div>
-      <div class="yq-card-foot yq-hint">
-        只列出「已确认」且入住日期为今天的订单；办理入住不改房态，占用由订单推导。
+      <div class="card-footer small text-muted">
+        入住办理（P07 / F06）在 T8 接入，本页数据只读。
       </div>
     </div>
 
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h3 class="yq-card-title"><i class="fas fa-door-open"></i>在住房间</h3>
-        <span class="yq-chip is-success">{{ in_house_count }} 间在住</span>
+    <div class="card card-outline card-primary">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-door-open mr-1"></i>在住房间</h3>
+        <div class="card-tools"><span class="badge badge-primary">{{ in_house_count }} 间</span></div>
       </div>
-      <div class="yq-card-body is-tight">
+      <div class="card-body p-0">
         {% if in_house %}
-        <div class="table-wrap">
-          <table class="table table-sm table-hover mb-0">
-            <thead>
-              <tr>
-                <th>房号</th><th>入住人</th><th>手机</th><th>入住时间</th>
-                <th class="text-right">应收(元)</th><th class="text-right">操作</th>
-              </tr>
-            </thead>
+          <table class="table table-hover table-sm mb-0">
+            <thead><tr><th>房号</th><th>入住人</th><th>手机</th><th>入住时间</th><th class="text-right">应收(元)</th></tr></thead>
             <tbody>
               {% for c in in_house %}
-              <tr>
-                <td class="text-monospace">{{ c.reservation.room.room_no }}</td>
-                <td>{{ c.guest_name }}</td>
-                <td class="text-monospace yq-muted">{{ c.guest_phone }}</td>
-                <td class="yq-muted">{{ c.check_in_at|date:'Y-m-d H:i' }}</td>
-                <td class="text-right text-monospace">{{ c.total_charge|floatformat:2 }}</td>
-                <td class="text-right text-nowrap">
-                  <a href="{% url 'core:checkout_detail' c.pk %}" class="btn btn-sm btn-outline-success">
-                    <i class="fas fa-sign-out-alt mr-1"></i>结算
-                  </a>
-                </td>
-              </tr>
+                <tr>
+                  <td>{{ c.reservation.room.room_no }}</td>
+                  <td>{{ c.guest_name }}</td>
+                  <td>{{ c.guest_phone }}</td>
+                  <td>{{ c.check_in_at|date:'Y-m-d H:i' }}</td>
+                  <td class="text-right">{{ c.total_charge|floatformat:2 }}</td>
+                </tr>
               {% endfor %}
             </tbody>
           </table>
-        </div>
         {% else %}
-          {% include 'partials/empty_state.html' with icon='fas fa-bed' title='当前没有在住客人' hint='办理入住后会出现在这里' %}
+          <div class="p-3 text-muted">当前没有在住客人。</div>
         {% endif %}
-      </div>
-      <div class="yq-card-foot yq-hint">
-        在住客人可在「入住办理」页续住，或直接进入退房结算（P08）。
       </div>
     </div>
   </div>
 
-  <div class="col-xl-5">
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h3 class="yq-card-title"><i class="fas fa-broom"></i>待清洁（{{ cleaning_rooms|length }}）</h3>
-        <a href="{% url 'core:room_board' %}" class="btn btn-sm btn-outline-primary">去看板处理</a>
+  <div class="col-lg-5">
+    <div class="card card-outline card-warning">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-broom mr-1"></i>待清洁（{{ cleaning_rooms|length }}）</h3>
       </div>
-      <div class="yq-card-body">
+      <div class="card-body">
         {% if cleaning_rooms %}
-        <div class="d-flex flex-wrap" style="gap: 6px;">
-          {% for room in cleaning_rooms %}
-          <span class="yq-chip is-info text-monospace">{{ room.room_no }}</span>
-          {% endfor %}
-        </div>
-        <div class="yq-hint mt-2">清洁完成后在看板点「清洁完成」，房间恢复可用并自动记一条房态日志。</div>
+          <div class="d-flex flex-wrap">
+            {% for room in cleaning_rooms %}
+              <span class="badge badge-warning mr-1 mb-1 p-2">{{ room.room_no }}</span>
+            {% endfor %}
+          </div>
         {% else %}
-        <div class="yq-muted">没有待清洁房间，全部房态已就绪。</div>
+          <span class="text-muted">没有待清洁房间。</span>
         {% endif %}
+        <hr>
+        <p class="small text-muted mb-0">
+          房态共 4 态：正常（{{ room_status.available|default:0 }}）/
+          清洁中（{{ room_status.cleaning|default:0 }}）/
+          维修中（{{ room_status.maintenance|default:0 }}）/
+          停用（{{ room_status.disabled|default:0 }}），共 {{ room_total }} 间。
+          「已预订 / 入住中」由订单推导，不写进房态列。
+        </p>
       </div>
     </div>
 
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h3 class="yq-card-title"><i class="fas fa-chart-pie"></i>房态分布</h3>
-        <span class="yq-muted small">共 {{ room_total }} 间</span>
+    <div class="card card-outline card-danger">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-tools mr-1"></i>即将/正在封禁的房间</h3>
       </div>
-      <div class="yq-card-body">
-        <div class="d-flex align-items-center justify-content-between py-1 border-bottom">
-          <span class="yq-chip is-success"><i class="fas fa-door-open"></i>可用</span>
-          <span class="text-monospace">{{ room_status.available|default:0 }}</span>
-        </div>
-        <div class="d-flex align-items-center justify-content-between py-1 border-bottom">
-          <span class="yq-chip is-info"><i class="fas fa-broom"></i>清洁中</span>
-          <span class="text-monospace">{{ room_status.cleaning|default:0 }}</span>
-        </div>
-        <div class="d-flex align-items-center justify-content-between py-1 border-bottom">
-          <span class="yq-chip is-warning"><i class="fas fa-tools"></i>维修中</span>
-          <span class="text-monospace">{{ room_status.maintenance|default:0 }}</span>
-        </div>
-        <div class="d-flex align-items-center justify-content-between py-1">
-          <span class="yq-chip is-neutral"><i class="fas fa-ban"></i>停用</span>
-          <span class="text-monospace">{{ room_status.disabled|default:0 }}</span>
-        </div>
-        <div class="yq-hint mt-2">「已预订 / 入住中」由订单推导，不写进房态列。</div>
-      </div>
-    </div>
-
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h3 class="yq-card-title"><i class="fas fa-tools"></i>维修 / 封禁区间</h3>
-        <span class="yq-muted small">生效中与即将开始</span>
-      </div>
-      <div class="yq-card-body is-tight">
+      <div class="card-body p-0">
         {% if upcoming_blocks %}
-        <div class="table-wrap">
           <table class="table table-sm mb-0">
             <thead><tr><th>房号</th><th>类型</th><th>区间</th></tr></thead>
             <tbody>
               {% for b in upcoming_blocks %}
-              <tr>
-                <td class="text-monospace">{{ b.room.room_no }}</td>
-                <td>
-                  {% if b.block_type == 'maintenance' %}<span class="yq-chip is-warning">维修</span>
-                  {% else %}<span class="yq-chip is-neutral">停用</span>{% endif %}
-                </td>
-                <td class="small text-monospace">{{ b.start_date|date:'Y-m-d' }} ~ {{ b.end_date|date:'Y-m-d' }}</td>
-              </tr>
+                <tr>
+                  <td>{{ b.room.room_no }}</td>
+                  <td>
+                    {% if b.block_type == 'maintenance' %}<span class="badge badge-warning">维修</span>
+                    {% else %}<span class="badge badge-danger">停用</span>{% endif %}
+                  </td>
+                  <td class="small">{{ b.start_date|date:'Y-m-d' }} ~ {{ b.end_date|date:'Y-m-d' }}</td>
+                </tr>
               {% endfor %}
             </tbody>
           </table>
-        </div>
         {% else %}
-          {% include 'partials/empty_state.html' with icon='fas fa-check-circle' title='没有生效中的封禁区间' hint='登记维修 / 停用会在房态看板完成' %}
+          <div class="p-3 text-muted">没有生效中的封禁区间。</div>
         {% endif %}
       </div>
-      <div class="yq-card-foot yq-hint">
+      <div class="card-footer small text-muted">
         封禁区间与订单冲突由数据库触发器拦截（SQLSTATE 23514）。
       </div>
     </div>

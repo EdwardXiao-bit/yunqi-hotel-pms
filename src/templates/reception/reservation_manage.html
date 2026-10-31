@@ -1,88 +1,37 @@
 {% extends 'base.html' %}
 {% block title %}预订管理 · 云栖酒店{% endblock %}
 {% block page_title %}预订管理{% endblock %}
-{% block page_subtitle %}按状态 / 入住日期 / 预订号·姓名·手机号筛选；确认占房，取消与未到店立即释放日期{% endblock %}
 {% block breadcrumb_current %}前台作业 / 预订管理{% endblock %}
 
-{% block page_actions %}
-<a href="{% url 'core:reception_reservations' %}?quick=today" class="btn btn-primary btn-sm">
-  <i class="fas fa-plane-arrival mr-1"></i>今日到店
-</a>
-<a href="{% url 'core:room_board' %}" class="btn btn-outline-primary btn-sm">
-  <i class="fas fa-th-large mr-1"></i>房态看板
-</a>
-{% endblock %}
-
 {% block content %}
-<div class="row">
-  <div class="col-xl-3 col-md-6 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-clipboard-list' value=total unit='条' label='匹配预订' hint='按当前筛选条件统计' tone='info' %}
+<div class="card card-primary card-outline">
+  <div class="card-header">
+    <h3 class="card-title"><i class="fas fa-clipboard-check mr-1"></i>共 {{ total }} 条预订</h3>
+    <div class="card-tools small text-muted">F05 · P06</div>
   </div>
-  <div class="col-xl-3 col-md-6 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-file-alt' value=reservations|length unit='条' label='本页显示' hint='服务端分页，翻页查看更多' tone='neutral' %}
-  </div>
-  <div class="col-xl-3 col-md-6 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-filter' value=status|default:'全部' unit='' label='状态筛选' hint='下拉切换后点「筛选」' tone='gold' %}
-  </div>
-  <div class="col-xl-3 col-md-6 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-calendar-day' value=date_from|default:'不限' unit='' label='入住起始' hint='仅按入住日期下限过滤' tone='success' %}
-  </div>
-</div>
-
-<div class="yq-card">
-  <div class="yq-card-head">
-    <h3 class="yq-card-title"><i class="fas fa-filter"></i>筛选条件</h3>
-    <span class="yq-muted small">共 {{ total }} 条 · {{ today|date:'Y-m-d' }}</span>
-  </div>
-  <div class="yq-card-body">
-    <form method="get" action="{% url 'core:reception_reservations' %}" class="yq-toolbar">
-      <div class="yq-field">
-        <label for="status">状态</label>
-        <select class="form-control form-control-sm" id="status" name="status" aria-label="状态">
-          <option value="">全部状态</option>
-          {% for value, label in status_choices %}
-            <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="yq-field">
-        <label for="date_from">入住</label>
-        <input type="date" class="form-control form-control-sm" id="date_from" name="date_from" value="{{ date_from }}">
-      </div>
-      <div class="yq-field">
-        <label for="date_to">至</label>
-        <input type="date" class="form-control form-control-sm" id="date_to" name="date_to" value="{{ date_to }}">
-      </div>
-      <div class="yq-field" style="min-width: 220px;">
-        <label for="keyword">关键字</label>
-        <input type="text" class="form-control form-control-sm" id="keyword" name="keyword" value="{{ keyword }}"
-               placeholder="预订号 / 姓名 / 手机号" aria-label="关键字">
-      </div>
-      <div class="yq-field">
-        <label>&nbsp;</label>
-        <div class="d-flex">
-          <button type="submit" class="btn btn-sm btn-primary mr-2"><i class="fas fa-search mr-1"></i>筛选</button>
-          <a href="{% url 'core:reception_reservations' %}" class="btn btn-sm btn-default">重置</a>
-        </div>
-      </div>
+  <div class="card-body pb-0">
+    <form method="get" action="{% url 'core:reception_reservations' %}" class="form-inline mb-2">
+      <select class="form-control form-control-sm mr-2 mb-1" name="status" aria-label="状态">
+        <option value="">全部状态</option>
+        {% for value, label in status_choices %}
+          <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <label class="mr-1 mb-1 small" for="date_from">入住</label>
+      <input type="date" class="form-control form-control-sm mr-2 mb-1" id="date_from" name="date_from" value="{{ date_from }}">
+      <label class="mr-1 mb-1 small" for="date_to">至</label>
+      <input type="date" class="form-control form-control-sm mr-2 mb-1" id="date_to" name="date_to" value="{{ date_to }}">
+      <input type="text" class="form-control form-control-sm mr-2 mb-1" name="keyword" value="{{ keyword }}"
+             placeholder="预订号 / 姓名 / 手机号" aria-label="关键字">
+      <button type="submit" class="btn btn-sm btn-primary mr-1 mb-1"><i class="fas fa-search mr-1"></i>筛选</button>
+      <a href="{% url 'core:reception_reservations' %}" class="btn btn-sm btn-default mb-1">重置</a>
+      <a href="{% url 'core:reception_reservations' %}?quick=today" class="btn btn-sm btn-outline-info ml-auto mb-1">
+        <i class="fas fa-plane-arrival mr-1"></i>今日到店
+      </a>
     </form>
   </div>
-  <div class="yq-card-foot yq-hint">
-    关键字支持预订号精确匹配与姓名 / 手机号模糊匹配；「今日到店」等价于入住日期为今天的快捷筛选。
-  </div>
-</div>
-
-<div class="yq-card">
-  <div class="yq-card-head">
-    <h3 class="yq-card-title"><i class="fas fa-list"></i>预订列表</h3>
-    <div class="d-flex align-items-center">
-      {% if keyword %}<span class="yq-chip is-neutral mr-2">关键字：{{ keyword }}</span>{% endif %}
-      <span class="yq-chip is-info">{{ total }} 条</span>
-    </div>
-  </div>
-  <div class="yq-card-body is-tight">
+  <div class="card-body p-0">
     {% if reservations %}
-    <div class="table-wrap">
       <table class="table table-hover table-sm mb-0">
         <thead>
           <tr>
@@ -94,25 +43,19 @@
           {% for r in reservations %}
             <tr>
               <td class="text-monospace">{{ r.reservation_no }}</td>
-              <td>
-                {{ r.customer.name }}
-                <span class="d-block yq-muted small text-monospace">{{ r.customer.phone }}</span>
-              </td>
-              <td>
-                <span class="text-monospace">{{ r.room.room_no }}</span>
-                <span class="yq-muted small">{{ r.room.room_type.name }}</span>
-              </td>
-              <td class="text-monospace">{{ r.check_in_date|date:'Y-m-d' }}</td>
-              <td class="text-monospace">{{ r.check_out_date|date:'Y-m-d' }}</td>
+              <td>{{ r.customer.name }}<br><span class="text-muted small text-monospace">{{ r.customer.phone }}</span></td>
+              <td>{{ r.room.room_no }} <span class="text-muted small">{{ r.room.room_type.name }}</span></td>
+              <td>{{ r.check_in_date|date:'Y-m-d' }}</td>
+              <td>{{ r.check_out_date|date:'Y-m-d' }}</td>
               <td class="text-right">{{ r.nights }}</td>
               <td class="text-right text-monospace">{{ r.total_amount|floatformat:2 }}</td>
               <td>
-                {% if r.status == 'pending' %}<span class="yq-chip is-warning">待确认</span>
-                {% elif r.status == 'confirmed' %}<span class="yq-chip is-info">已确认</span>
-                {% elif r.status == 'checked_in' %}<span class="yq-chip is-success">入住中</span>
-                {% elif r.status == 'checked_out' %}<span class="yq-chip is-neutral">已退房</span>
-                {% elif r.status == 'cancelled' %}<span class="yq-chip is-neutral">已取消</span>
-                {% else %}<span class="yq-chip is-danger">未到店</span>{% endif %}
+                {% if r.status == 'pending' %}<span class="badge badge-warning">待确认</span>
+                {% elif r.status == 'confirmed' %}<span class="badge badge-info">已确认</span>
+                {% elif r.status == 'checked_in' %}<span class="badge badge-success">入住中</span>
+                {% elif r.status == 'checked_out' %}<span class="badge badge-secondary">已退房</span>
+                {% elif r.status == 'cancelled' %}<span class="badge badge-dark">已取消</span>
+                {% else %}<span class="badge badge-danger">未到店</span>{% endif %}
               </td>
               <td class="text-right text-nowrap">
                 {% if r.status == 'pending' %}
@@ -121,7 +64,7 @@
                     <input type="hidden" name="reservation_id" value="{{ r.pk }}">
                     <input type="hidden" name="action" value="confirm">
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button type="submit" class="btn btn-sm btn-success">
+                    <button type="submit" class="btn btn-xs btn-sm btn-success">
                       <i class="fas fa-check mr-1"></i>确认
                     </button>
                   </form>
@@ -133,7 +76,7 @@
                     <input type="hidden" name="reservation_id" value="{{ r.pk }}">
                     <input type="hidden" name="action" value="cancel">
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <button type="submit" class="btn btn-xs btn-sm btn-outline-danger">
                       <i class="fas fa-times mr-1"></i>取消
                     </button>
                   </form>
@@ -145,31 +88,29 @@
                     <input type="hidden" name="reservation_id" value="{{ r.pk }}">
                     <input type="hidden" name="action" value="no_show">
                     <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                    <button type="submit" class="btn btn-sm btn-outline-warning">
+                    <button type="submit" class="btn btn-xs btn-sm btn-outline-warning">
                       <i class="fas fa-user-slash mr-1"></i>未到店
                     </button>
                   </form>
                 {% endif %}
                 {% if r.status == 'checked_out' or r.status == 'cancelled' or r.status == 'no_show' %}
-                  <span class="yq-muted small">—</span>
+                  <span class="text-muted small">—</span>
                 {% endif %}
               </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
-    </div>
     {% else %}
-      {% include 'partials/empty_state.html' with icon='fas fa-inbox' title='没有符合条件的预订' hint='放宽状态或日期区间，或清空关键字再试' %}
+      <div class="p-4 text-center text-muted">
+        <i class="fas fa-inbox fa-2x mb-2 d-block"></i>没有符合条件的预订。
+      </div>
     {% endif %}
   </div>
-  <div class="yq-card-foot d-flex align-items-center flex-wrap">
-    <span class="yq-hint mr-auto">已入住订单不可取消；取消与未到店都会释放占用日期。</span>
-    {% if page_obj.paginator.num_pages > 1 %}
+  {% if page_obj.paginator.num_pages > 1 %}
+    <div class="card-footer clearfix">
       {% include 'partials/pagination.html' %}
-    {% else %}
-      <span class="yq-muted small">共 {{ total }} 条，单页显示</span>
-    {% endif %}
-  </div>
+    </div>
+  {% endif %}
 </div>
 {% endblock %}

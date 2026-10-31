@@ -1,281 +1,200 @@
 {% extends 'base.html' %}
 {% block title %}入住办理 · 云栖酒店{% endblock %}
 {% block page_title %}入住办理{% endblock %}
-{% block page_subtitle %}按预订号 / 手机号 / 客户姓名检索，办理入住不改房态；续住在右下方卡片直接改离店日{% endblock %}
 {% block breadcrumb_current %}前台作业 / 入住办理{% endblock %}
-
-{% block page_actions %}
-<a href="{% url 'core:walkin_checkin' %}" class="btn btn-primary btn-sm">
-  <i class="fas fa-user-plus mr-1"></i>散客入住
-</a>
-<a href="{% url 'core:room_board' %}" class="btn btn-outline-primary btn-sm">
-  <i class="fas fa-th-large mr-1"></i>房态看板
-</a>
-{% endblock %}
 
 {% block content %}
 <div class="row">
-  <div class="col-xl-3 col-md-6 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-key' value=in_house|length unit='间' label='在住客人' hint='含今日新办理入住的订单' tone='success' %}
-  </div>
-  <div class="col-xl-3 col-md-6 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-search' value=results|length unit='条' label='检索命中' hint='仅列出可办理的订单' tone='info' %}
-  </div>
-  <div class="col-xl-3 col-md-6 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-yen-sign' value=default_deposit|floatformat:2 unit='元' label='默认押金' hint='可按客人实际情况调整' tone='gold' %}
-  </div>
-  <div class="col-xl-3 col-md-6 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-calendar-day' value=today|date:'m-d' unit='' label='今日日期' hint='入住区间以订单为准' tone='neutral' %}
-  </div>
-</div>
-
-<div class="row">
-  <div class="col-xl-7">
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h3 class="yq-card-title"><i class="fas fa-sign-in-alt"></i>按预订办理入住</h3>
-        <span class="yq-muted small">F06 · P07</span>
+  <div class="col-lg-7">
+    <div class="card card-primary card-outline">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-sign-in-alt mr-1"></i>按预订办理入住</h3>
+        <div class="card-tools">
+          <a href="{% url 'core:walkin_checkin' %}" class="btn btn-sm btn-outline-primary">
+            <i class="fas fa-user-plus mr-1"></i>散客入住
+          </a>
+        </div>
       </div>
-      <div class="yq-card-body">
-        <form method="get" action="{% url 'core:checkin_new' %}" class="yq-toolbar">
-          <div class="yq-field" style="flex: 1 1 260px;">
-            <label for="q">检索预订</label>
-            <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ keyword }}"
-                   placeholder="预订号 / 手机号 / 姓名 / 房号" aria-label="检索关键字">
-          </div>
-          <div class="yq-field">
-            <label>&nbsp;</label>
-            <div class="d-flex">
-              <button type="submit" class="btn btn-sm btn-primary mr-2">
-                <i class="fas fa-search mr-1"></i>检索
-              </button>
-              <a href="{% url 'core:checkin_new' %}" class="btn btn-sm btn-default">清空</a>
-            </div>
-          </div>
+      <div class="card-body pb-2">
+        <form method="get" action="{% url 'core:checkin_new' %}" class="form-inline">
+          <input type="text" class="form-control form-control-sm mr-2 mb-1 col-sm-5"
+                 name="q" value="{{ keyword }}" placeholder="预订号 / 手机号 / 姓名 / 房号" aria-label="检索关键字">
+          <button type="submit" class="btn btn-sm btn-primary mr-1 mb-1">
+            <i class="fas fa-search mr-1"></i>检索
+          </button>
+          <a href="{% url 'core:checkin_new' %}" class="btn btn-sm btn-default mb-1">清空</a>
         </form>
-        <div class="yq-hint mt-2">支持按预订号精确查、按手机号或姓名模糊查；只列出待确认 / 已确认 / 在住的订单。</div>
+        <div class="small text-muted mt-1">支持按预订号精确查、按手机号或姓名模糊查；只列出待确认 / 已确认 / 在住的订单。</div>
       </div>
       {% if keyword %}
-      <div class="yq-card-body is-tight border-top">
+      <div class="card-body p-0">
         {% if results %}
-        <div class="table-wrap">
-          <table class="table table-hover table-sm mb-0">
-            <thead>
-              <tr>
-                <th>预订号</th><th>客户</th><th>房号 / 房型</th><th>入住</th><th>离店</th><th>状态</th><th class="text-right">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for r in results %}
-              <tr>
-                <td class="text-monospace">{{ r.reservation_no }}</td>
-                <td>
-                  {{ r.customer.name }}
-                  <span class="d-block yq-muted small text-monospace">{{ r.customer.phone }}</span>
-                </td>
-                <td>
-                  <span class="text-monospace">{{ r.room.room_no }}</span>
-                  <span class="yq-muted small">{{ r.room.room_type.name }}</span>
-                </td>
-                <td class="text-monospace">{{ r.check_in_date|date:'m-d' }}</td>
-                <td class="text-monospace">{{ r.check_out_date|date:'m-d' }}</td>
-                <td>
-                  {% if r.status == 'pending' %}<span class="yq-chip is-warning">待确认</span>
-                  {% elif r.status == 'confirmed' %}<span class="yq-chip is-info">已确认</span>
-                  {% else %}<span class="yq-chip is-success">入住中</span>{% endif %}
-                </td>
-                <td class="text-right text-nowrap">
-                  <a href="{% url 'core:checkin_new' %}?reservation_id={{ r.pk }}" class="btn btn-sm btn-primary">
-                    {% if r.status == 'checked_in' %}查看{% else %}办理{% endif %}
-                  </a>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+        <table class="table table-hover table-sm mb-0">
+          <thead>
+            <tr>
+              <th>预订号</th><th>客户</th><th>房号 / 房型</th><th>入住</th><th>离店</th><th>状态</th><th class="text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in results %}
+            <tr>
+              <td class="text-monospace">{{ r.reservation_no }}</td>
+              <td>{{ r.customer.name }}<br><span class="text-muted small text-monospace">{{ r.customer.phone }}</span></td>
+              <td>{{ r.room.room_no }} <span class="text-muted small">{{ r.room.room_type.name }}</span></td>
+              <td>{{ r.check_in_date|date:'m-d' }}</td>
+              <td>{{ r.check_out_date|date:'m-d' }}</td>
+              <td>
+                {% if r.status == 'pending' %}<span class="badge badge-warning">待确认</span>
+                {% elif r.status == 'confirmed' %}<span class="badge badge-info">已确认</span>
+                {% else %}<span class="badge badge-success">入住中</span>{% endif %}
+              </td>
+              <td class="text-right text-nowrap">
+                <a href="{% url 'core:checkin_new' %}?reservation_id={{ r.pk }}" class="btn btn-xs btn-primary">
+                  {% if r.status == 'checked_in' %}查看{% else %}办理{% endif %}
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
         {% else %}
-        <div class="p-3 yq-muted small">没有检索到符合条件的预订，换个关键字试试。</div>
+        <div class="p-3 text-muted small">没有检索到符合条件的预订，换个关键字试试。</div>
         {% endif %}
       </div>
       {% endif %}
-      <div class="yq-card-foot yq-hint">
-        持预订到店的客人：先检索，再在下方卡片核对房间与入住人信息后提交。
-      </div>
     </div>
 
     {% if selected %}
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h3 class="yq-card-title">
-          <i class="fas fa-file-signature"></i>{{ selected.reservation_no }}
-          <span class="yq-muted small">{{ selected.customer.name }} / {{ selected.customer.phone }}</span>
+    <div class="card card-outline {% if block_reason %}card-warning{% else %}card-success{% endif %}">
+      <div class="card-header">
+        <h3 class="card-title">
+          <i class="fas fa-file-signature mr-1"></i>{{ selected.reservation_no }}
+          <small class="text-muted ml-2">{{ selected.customer.name }} / {{ selected.customer.phone }}</small>
         </h3>
-        {% if block_reason %}<span class="yq-chip is-warning">不可办理</span>
-        {% else %}<span class="yq-chip is-success">可办理</span>{% endif %}
+        <div class="card-tools small text-muted">F06 · P07</div>
       </div>
-      <div class="yq-card-body">
-        <div class="row yq-muted small mb-2">
-          <div class="col-md-4 mb-1">
-            <div class="yq-hint">房间</div>
-            <div class="text-monospace">{{ selected.room.room_no }}（{{ selected.room.room_type.name }}，可住 {{ selected.room.room_type.capacity }} 人）</div>
-          </div>
-          <div class="col-md-2 mb-1">
-            <div class="yq-hint">房态</div>
-            <div>{{ selected.room.get_status_display }}</div>
-          </div>
-          <div class="col-md-3 mb-1">
-            <div class="yq-hint">入住区间</div>
-            <div class="text-monospace">{{ selected.check_in_date|date:'Y-m-d' }} → {{ selected.check_out_date|date:'Y-m-d' }}</div>
-          </div>
-          <div class="col-md-2 mb-1">
-            <div class="yq-hint">房晚</div>
-            <div>{{ selected.nights }} 晚</div>
-          </div>
-          <div class="col-md-3 mb-1">
-            <div class="yq-hint">预订金额</div>
-            <div class="text-monospace">{{ selected.total_amount|floatformat:2 }} 元</div>
-          </div>
-          <div class="col-md-3 mb-1">
-            <div class="yq-hint">人数 / 状态</div>
-            <div>{{ selected.guest_count }} 人 · {{ selected.get_status_display }}</div>
-          </div>
-        </div>
+      <div class="card-body">
+        <dl class="row mb-3 small">
+          <dt class="col-sm-3">房间</dt>
+          <dd class="col-sm-3">{{ selected.room.room_no }}（{{ selected.room.room_type.name }}，可住 {{ selected.room.room_type.capacity }} 人）</dd>
+          <dt class="col-sm-3">房态</dt>
+          <dd class="col-sm-3">{{ selected.room.get_status_display }}</dd>
+          <dt class="col-sm-3">入住区间</dt>
+          <dd class="col-sm-3">{{ selected.check_in_date|date:'Y-m-d' }} → {{ selected.check_out_date|date:'Y-m-d' }}（{{ selected.nights }} 晚）</dd>
+          <dt class="col-sm-3">预订金额</dt>
+          <dd class="col-sm-3 text-monospace">{{ selected.total_amount|floatformat:2 }} 元</dd>
+          <dt class="col-sm-3">人数 / 状态</dt>
+          <dd class="col-sm-3">{{ selected.guest_count }} 人 · {{ selected.get_status_display }}</dd>
+        </dl>
 
         {% if block_reason %}
           <div class="alert alert-warning mb-0">
             <i class="fas fa-exclamation-triangle mr-1"></i>{{ block_reason }}
           </div>
+        {% else %}
+          <form method="post" action="{% url 'core:checkin_new' %}">
+            {% csrf_token %}
+            <input type="hidden" name="reservation_id" value="{{ selected.pk }}">
+            <input type="hidden" name="action" value="checkin">
+            <div class="form-row">
+              <div class="form-group col-md-4">
+                <label for="guest_name">入住人姓名 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="guest_name" name="guest_name"
+                       value="{{ selected.customer.name }}" maxlength="50" required>
+              </div>
+              <div class="form-group col-md-4">
+                <label for="guest_phone">手机号 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="guest_phone" name="guest_phone"
+                       value="{{ selected.customer.phone }}" maxlength="20" required>
+              </div>
+              <div class="form-group col-md-4">
+                <label for="guest_id_card">证件号</label>
+                <input type="text" class="form-control" id="guest_id_card" name="guest_id_card"
+                       value="{{ selected.customer.id_card|default_if_none:'' }}" maxlength="18">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group col-md-4">
+                <label for="deposit_amount">押金（元）</label>
+                <input type="number" step="0.01" min="0" class="form-control" id="deposit_amount"
+                       name="deposit_amount" value="{{ default_deposit|floatformat:2 }}" required>
+              </div>
+              <div class="form-group col-md-8">
+                <label for="remark">备注（≤200 字）</label>
+                <input type="text" class="form-control" id="remark" name="remark" maxlength="200"
+                       placeholder="例如：加床一张 / 下午两点到店">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-success" data-confirm="确认办理入住？将写入入住记录并把订单置为「入住中」。">
+              <i class="fas fa-sign-in-alt mr-1"></i>办理入住
+            </button>
+            <span class="text-muted small ml-2">房费按预订金额 {{ selected.total_amount|floatformat:2 }} 元预记，退房时按实际房晚与增值服务结算。</span>
+          </form>
         {% endif %}
       </div>
-      {% if not block_reason %}
-      <form method="post" action="{% url 'core:checkin_new' %}">
-        {% csrf_token %}
-        <input type="hidden" name="reservation_id" value="{{ selected.pk }}">
-        <input type="hidden" name="action" value="checkin">
-        <div class="yq-card-body">
-          <div class="form-row">
-            <div class="form-group col-md-6">
-              <label for="guest_name">入住人姓名 <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="guest_name" name="guest_name"
-                     value="{{ selected.customer.name }}" maxlength="50" required>
-            </div>
-            <div class="form-group col-md-6">
-              <label for="guest_phone">手机号 <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="guest_phone" name="guest_phone"
-                     value="{{ selected.customer.phone }}" maxlength="20" required>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group col-md-6">
-              <label for="guest_id_card">证件号</label>
-              <input type="text" class="form-control" id="guest_id_card" name="guest_id_card"
-                     value="{{ selected.customer.id_card|default_if_none:'' }}" maxlength="18">
-            </div>
-            <div class="form-group col-md-6">
-              <label for="deposit_amount">押金（元）</label>
-              <input type="number" step="0.01" min="0" class="form-control" id="deposit_amount"
-                     name="deposit_amount" value="{{ default_deposit|floatformat:2 }}" required>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-group col-12 mb-0">
-              <label for="remark">备注（≤200 字）</label>
-              <input type="text" class="form-control" id="remark" name="remark" maxlength="200"
-                     placeholder="例如：加床一张 / 下午两点到店">
-            </div>
-          </div>
-        </div>
-        <div class="yq-card-foot d-flex align-items-center flex-wrap">
-          <span class="yq-hint mr-auto">房费按预订金额 {{ selected.total_amount|floatformat:2 }} 元预记，退房时按实际房晚与增值服务结算。</span>
-          <button type="submit" class="btn btn-success" data-confirm="确认办理入住？将写入入住记录并把订单置为「入住中」。">
-            <i class="fas fa-sign-in-alt mr-1"></i>办理入住
-          </button>
-        </div>
-      </form>
-        {% endif %}
     </div>
     {% endif %}
   </div>
 
-  <div class="col-xl-5">
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h3 class="yq-card-title"><i class="fas fa-info-circle"></i>口径说明</h3>
-        <span class="yq-muted small">入住不写房态</span>
+  <div class="col-lg-5">
+    <div class="card card-outline card-info">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-bed mr-1"></i>在住客人（{{ in_house|length }}）</h3>
+        <div class="card-tools small text-muted">{{ today|date:'Y-m-d' }}</div>
       </div>
-      <div class="yq-card-body">
-        <ul class="pl-3 mb-0 small">
-          <li class="mb-2">入住写 <code>check_in_record</code>，订单状态置为「入住中」，<b>不改房态</b>——占用由订单推导。</li>
-          <li class="mb-2">房间处于清洁中 / 维修中 / 停用时不允许办理入住，需先在看板处理房态。</li>
+      <div class="card-body p-0">
+        {% if in_house %}
+        <table class="table table-sm mb-0">
+          <thead><tr><th>房号</th><th>客人</th><th>离店</th><th style="width:11rem">续住</th><th class="text-right">退房</th></tr></thead>
+          <tbody>
+            {% for r in in_house %}
+            <tr>
+              <td>{{ r.room.room_no }}<br><span class="text-muted small">{{ r.room.room_type.name }}</span></td>
+              <td>{{ r.customer.name }}<br><span class="text-muted small text-monospace">{{ r.reservation_no }}</span></td>
+              <td>{{ r.check_out_date|date:'m-d' }}</td>
+              <td>
+                <form method="post" action="{% url 'core:checkin_new' %}" class="form-inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="extend">
+                  <input type="hidden" name="reservation_id" value="{{ r.pk }}">
+                  <input type="date" class="form-control form-control-sm mr-1" name="check_out_date"
+                         value="{{ r.check_out_date|date:'Y-m-d' }}" min="{{ r.check_out_date|date:'Y-m-d' }}"
+                         aria-label="新的离店日期" required>
+                  <button type="submit" class="btn btn-xs btn-outline-primary" data-confirm="确认续住到该日期？将按新日期重算逐日价格。">续住</button>
+                </form>
+              </td>
+              <td class="text-right">
+                {% if r.check_in %}
+                <a href="{% url 'core:checkout_detail' r.check_in.pk %}" class="btn btn-xs btn-outline-success text-nowrap">
+                  <i class="fas fa-sign-out-alt mr-1"></i>结算
+                </a>
+                {% else %}
+                <span class="text-muted small">无入住记录</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="p-3 text-muted small">当前没有在住客人。</div>
+        {% endif %}
+      </div>
+      <div class="card-footer small text-muted">
+        续住会先检查新增区间是否与其它预订或维修/停用区间冲突，冲突时给出中文原因并拒绝。
+      </div>
+    </div>
+
+    <div class="card card-outline card-secondary">
+      <div class="card-header"><h3 class="card-title">口径说明</h3></div>
+      <div class="card-body small text-muted">
+        <ul class="mb-0 pl-3">
+          <li>入住写 `check_in_record`，订单状态置为「入住中」，<b>不改房态</b>——占用由订单推导。</li>
+          <li>房间处于清洁中 / 维修中 / 停用时不允许办理入住，需先在看板处理房态。</li>
           <li>押金默认 200.00 元，进入结算时多退少补；押金不计营业收入。</li>
         </ul>
       </div>
-      <div class="yq-card-foot yq-hint">
-        续住会检查新增区间是否与其它预订或维修 / 停用区间冲突。
-      </div>
     </div>
-  </div>
-</div>
-
-<div class="yq-card">
-  <div class="yq-card-head">
-    <h3 class="yq-card-title"><i class="fas fa-bed"></i>在住客人（{{ in_house|length }}）</h3>
-    <span class="yq-muted small">{{ today|date:'Y-m-d' }}</span>
-  </div>
-  <div class="yq-card-body is-tight">
-    {% if in_house %}
-    <div class="table-wrap">
-      <table class="table table-sm table-hover mb-0">
-        <thead>
-          <tr>
-            <th>房号</th><th>客人</th><th>离店</th>
-            <th style="width: 18rem;">续住</th><th class="text-right">退房</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in in_house %}
-          <tr>
-            <td>
-              <span class="text-monospace">{{ r.room.room_no }}</span>
-              <span class="yq-muted small">{{ r.room.room_type.name }}</span>
-            </td>
-            <td>
-              {{ r.customer.name }}
-              <span class="d-block yq-muted small text-monospace">{{ r.reservation_no }}</span>
-            </td>
-            <td class="text-monospace">{{ r.check_out_date|date:'m-d' }}</td>
-            <td>
-              <form method="post" action="{% url 'core:checkin_new' %}" class="form-inline">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="extend">
-                <input type="hidden" name="reservation_id" value="{{ r.pk }}">
-                <input type="date" class="form-control form-control-sm mr-1" name="check_out_date"
-                       value="{{ r.check_out_date|date:'Y-m-d' }}" min="{{ r.check_out_date|date:'Y-m-d' }}"
-                       aria-label="新的离店日期" required>
-                <button type="submit" class="btn btn-sm btn-outline-primary" data-confirm="确认续住到该日期？将按新日期重算逐日价格。">续住</button>
-              </form>
-            </td>
-            <td class="text-right">
-              {% if r.check_in %}
-              <a href="{% url 'core:checkout_detail' r.check_in.pk %}" class="btn btn-sm btn-outline-success text-nowrap">
-                <i class="fas fa-sign-out-alt mr-1"></i>结算
-              </a>
-              {% else %}
-              <span class="yq-muted small">无入住记录</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-      {% include 'partials/empty_state.html' with icon='fas fa-bed' title='当前没有在住客人' hint='办理入住后会出现在这里，可直接续住或退房结算' %}
-    {% endif %}
-  </div>
-  <div class="yq-card-foot yq-hint">
-    续住会先检查新增区间是否与其它预订或维修/停用区间冲突，冲突时给出中文原因并拒绝。
   </div>
 </div>
 {% endblock %}

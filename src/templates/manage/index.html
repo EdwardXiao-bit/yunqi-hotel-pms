@@ -1,129 +1,91 @@
 {% extends 'base.html' %}
-
 {% block title %}管理概览 · 云栖酒店{% endblock %}
 {% block page_title %}管理概览{% endblock %}
-{% block page_subtitle %}13 张表运行快照 · 本月关键指标 · 数据库连接（只读）{% endblock %}
 {% block breadcrumb_current %}系统管理{% endblock %}
-
-{% block page_actions %}
-  <a class="btn btn-sm btn-outline-primary" href="{% url 'core:reports' %}">
-    <i class="fas fa-chart-line mr-1"></i>经营统计报表
-  </a>
-  <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:reservation_list' %}">
-    <i class="fas fa-list-alt mr-1"></i>预订总览
-  </a>
-{% endblock %}
 
 {% block content %}
 <div class="row">
-  <div class="col-6 col-lg-3 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-key' value=metrics.in_house unit='单' label='在住订单' hint='订单状态 = 入住中' tone='info' %}
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-primary">
+      <div class="inner"><h3>{{ metrics.in_house }}</h3><p>在住订单</p></div>
+      <div class="icon"><i class="fas fa-key"></i></div>
+    </div>
   </div>
-  <div class="col-6 col-lg-3 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-hourglass-half' value=metrics.pending unit='单' label='待确认订单' hint='等待前台确认' tone='warning' %}
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-warning">
+      <div class="inner"><h3>{{ metrics.pending }}</h3><p>待确认订单</p></div>
+      <div class="icon"><i class="fas fa-hourglass-half"></i></div>
+    </div>
   </div>
-  <div class="col-6 col-lg-3 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-calendar-alt' value=metrics.this_month_arrivals unit='单' label='本月起租订单' hint='入住日期落在本月' tone='gold' %}
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-info">
+      <div class="inner"><h3>{{ metrics.this_month_arrivals }}</h3><p>本月起租订单</p></div>
+      <div class="icon"><i class="fas fa-calendar-alt"></i></div>
+    </div>
   </div>
-  <div class="col-6 col-lg-3 mb-3">
-    {% include 'partials/stat.html' with icon='fas fa-tools' value=occupancy.blocked unit='间' label='维修 / 停用房间' hint='当前不可售' tone='danger' %}
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-danger">
+      <div class="inner"><h3>{{ occupancy.blocked }}</h3><p>维修/停用房间</p></div>
+      <div class="icon"><i class="fas fa-tools"></i></div>
+    </div>
   </div>
 </div>
 
 <div class="row">
   <div class="col-lg-7">
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h2 class="yq-card-title"><i class="fas fa-database"></i>数据概览（13 张表）</h2>
-        <span class="yq-hint">按 sql/01_schema.sql 表顺序</span>
+    <div class="card card-outline card-primary">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-database mr-1"></i>数据概览（13 张表）</h3>
+        <div class="card-tools small text-muted">按 sql/01_schema.sql 的表顺序展示主要业务表</div>
       </div>
-      <div class="yq-card-body is-tight">
-        <div class="table-wrap">
-          <table class="table table-sm table-hover">
-            <thead>
+      <div class="card-body p-0">
+        <table class="table table-hover table-sm mb-0">
+          <thead><tr><th>表 / 实体</th><th class="text-right">行数</th></tr></thead>
+          <tbody>
+            {% for label, count, icon in counts %}
               <tr>
-                <th>表 / 实体</th>
-                <th class="text-right" style="width:120px">行数</th>
+                <td><i class="{{ icon }} text-muted mr-1"></i>{{ label }}</td>
+                <td class="text-right">{{ count }}</td>
               </tr>
-            </thead>
-            <tbody>
-              {% for label, count, icon in counts %}
-                <tr>
-                  <td><i class="{{ icon }} yq-muted mr-2"></i>{{ label }}</td>
-                  <td class="text-right yq-amount">{{ count }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
-      <div class="yq-card-foot">
-        <div class="yq-hint">
-          上表为 10 张主要表；13 张表另含 <code>rate_plan</code>（价格方案）、
-          <code>room_status_log</code>（房态日志）、<code>reservation_price</code>（逐日成交价），
-          分别在「房型与价格维护」与「经营统计报表」页查看。
-        </div>
+      <div class="card-footer small text-muted">
+        房态分布：正常 {{ occupancy.available }} / 共 {{ occupancy.total }} 间。
+        完整报表（F09，P11）在 T12 接入 ECharts 四张图。
       </div>
     </div>
   </div>
 
   <div class="col-lg-5">
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h2 class="yq-card-title"><i class="fas fa-server"></i>数据库连接信息</h2>
-        <span class="yq-chip is-success"><i class="fas fa-circle" style="font-size:0.45rem"></i>已连接</span>
+    <div class="card card-outline card-success">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fas fa-server mr-1"></i>数据库连接信息</h3>
       </div>
-      <div class="yq-card-body">
+      <div class="card-body">
         <table class="table table-sm mb-0">
           <tbody>
-            <tr>
-              <th class="yq-muted font-weight-normal" style="width:40%">数据库</th>
-              <td><code>{{ db_info.name }}</code></td>
-            </tr>
-            <tr>
-              <th class="yq-muted font-weight-normal">连接账号</th>
-              <td><code>{{ db_info.user }}</code></td>
-            </tr>
-            <tr>
-              <th class="yq-muted font-weight-normal">服务端版本</th>
-              <td class="yq-hint">{{ db_info.version }}</td>
-            </tr>
-            <tr>
-              <th class="yq-muted font-weight-normal">ORM 映射</th>
-              <td class="yq-hint">Django 6.1 · 模型 <code>managed = False</code></td>
-            </tr>
-            <tr>
-              <th class="yq-muted font-weight-normal">角色权限</th>
-              <td class="yq-hint">customer / receptionist / admin，由 <code>role_required</code> 控制</td>
-            </tr>
+            <tr><th class="w-50">数据库</th><td><code>{{ db_info.name }}</code></td></tr>
+            <tr><th>连接账号</th><td><code>{{ db_info.user }}</code></td></tr>
+            <tr><th>服务端版本</th><td class="small">{{ db_info.version }}</td></tr>
+            <tr><th>Django</th><td class="small">6.1（模型 <code>managed = False</code>，结构与约束由 sql/ 脚本维护）</td></tr>
+            <tr><th>角色权限</th><td class="small">customer / receptionist / admin，由 <code>core.decorators.role_required</code> 控制</td></tr>
           </tbody>
         </table>
       </div>
-      <div class="yq-card-foot">
-        <div class="d-flex justify-content-between align-items-center yq-hint">
-          <span>房态分布</span>
-          <span>正常可用 <strong class="yq-num">{{ occupancy.available }}</strong> / 共 <strong class="yq-num">{{ occupancy.total }}</strong> 间</span>
-        </div>
-      </div>
     </div>
 
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h2 class="yq-card-title"><i class="fas fa-shield-alt"></i>口径与约束</h2>
-      </div>
-      <div class="yq-card-body">
-        <div class="mb-3">
-          <div class="font-weight-bold">DDL 单一来源</div>
-          <div class="yq-hint">13 张表由 <code>sql/01–03</code> 脚本创建，Django 只做只读映射，避免结构与代码两份漂移。</div>
-        </div>
-        <div class="mb-3">
-          <div class="font-weight-bold">区间排他</div>
-          <div class="yq-hint">订单与维修 / 停用区间用生成列 + <code>EXCLUDE USING gist</code> 在库层拦重叠（SQLSTATE 23P01）。</div>
-        </div>
-        <div>
-          <div class="font-weight-bold">统计口径</div>
-          <div class="yq-hint">入住率、净收入、房型排行、来源取消率统一取自 <code>sql/04_queries.sql</code> 的 Q3 / Q4-b / Q5 / Q6-b。</div>
-        </div>
+    <div class="card card-outline card-secondary">
+      <div class="card-header"><h3 class="card-title"><i class="fas fa-list mr-1"></i>T4–T5 已落地</h3></div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush small">
+          <li class="list-group-item"><i class="fas fa-check text-success mr-1"></i>工程骨架：<code>config/</code> + <code>core/</code> + 模板/静态资源</li>
+          <li class="list-group-item"><i class="fas fa-check text-success mr-1"></i>13 张表模型映射（<code>managed=False</code>，全部外键对得上）</li>
+          <li class="list-group-item"><i class="fas fa-check text-success mr-1"></i>登录 / 登出（P00）+ 三角色首页与权限装饰器</li>
+          <li class="list-group-item"><i class="fas fa-check text-success mr-1"></i>AdminLTE 3.2 骨架：navbar / sidebar / footer / messages / pagination</li>
+          <li class="list-group-item"><i class="fas fa-hourglass-half text-warning mr-1"></i>P02–P13 业务页（T6 起按 <code>docs/页面约定.md</code> 落地）</li>
+        </ul>
       </div>
     </div>
   </div>

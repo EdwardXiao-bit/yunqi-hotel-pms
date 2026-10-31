@@ -14,70 +14,53 @@
     <a href="{% url 'core:login' %}">
       <i class="fas fa-hotel mr-2"></i><b>云栖</b>酒店
     </a>
-    <p class="login-sub">客房预订与入住管理系统</p>
+    <p class="h6 text-muted mt-2 mb-0">客房预订与入住管理系统</p>
   </div>
 
   <div class="card">
     <div class="card-body login-card-body">
-      <p class="login-box-msg">账号登录</p>
-      <p class="yq-hint text-center mb-3">客户 · 前台 · 管理员共用此入口，登录后按角色进入对应工作台</p>
+      <p class="login-box-msg">请使用账号登录（客户 / 前台 / 管理员）</p>
 
       {% if messages %}
         {% for message in messages %}
-          <div class="alert alert-{{ message.tags|default:'info' }} py-2 px-3 small" role="alert">
-            <i class="fas fa-info-circle mr-1"></i>{{ message }}
-          </div>
+          <div class="alert alert-{{ message.tags|default:'info' }} py-2 px-3 small" role="alert">{{ message }}</div>
         {% endfor %}
-      {% endif %}
-
-      {% if form.non_field_errors %}
-        <div class="alert alert-danger py-2 px-3 small" role="alert">
-          {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
-        </div>
       {% endif %}
 
       <form method="post" action="{% url 'core:login' %}" novalidate>
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ next }}">
 
-        <div class="form-group mb-3">
-          <label for="{{ form.username.id_for_label }}" class="small mb-1">用户名</label>
-          <div class="input-group">
-            {{ form.username }}
-            <div class="input-group-append">
-              <div class="input-group-text"><span class="fas fa-user"></span></div>
-            </div>
+        <div class="input-group mb-3">
+          {{ form.username }}
+          <div class="input-group-append">
+            <div class="input-group-text"><span class="fas fa-user"></span></div>
           </div>
-          {% for error in form.username.errors %}
-            <div class="text-danger small mt-1">{{ error }}</div>
-          {% endfor %}
         </div>
+        {% for error in form.username.errors %}
+          <div class="text-danger small mb-2">{{ error }}</div>
+        {% endfor %}
 
-        <div class="form-group mb-3">
-          <label for="{{ form.password.id_for_label }}" class="small mb-1">密码</label>
-          <div class="input-group">
-            {{ form.password }}
-            <div class="input-group-append">
-              <div class="input-group-text"><span class="fas fa-lock"></span></div>
-            </div>
+        <div class="input-group mb-3">
+          {{ form.password }}
+          <div class="input-group-append">
+            <div class="input-group-text"><span class="fas fa-lock"></span></div>
           </div>
-          {% for error in form.password.errors %}
-            <div class="text-danger small mt-1">{{ error }}</div>
-          {% endfor %}
         </div>
+        {% for error in form.password.errors %}
+          <div class="text-danger small mb-2">{{ error }}</div>
+        {% endfor %}
 
-        <button type="submit" class="btn btn-primary btn-block">
-          <i class="fas fa-sign-in-alt mr-1"></i>登录
-        </button>
+        <div class="row">
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary btn-block">
+              <i class="fas fa-sign-in-alt mr-1"></i>登录
+            </button>
+          </div>
+        </div>
       </form>
 
-      <div class="text-center mt-3">
-        <span class="yq-chip is-neutral"><i class="fas fa-user"></i>客户</span>
-        <span class="yq-chip is-neutral"><i class="fas fa-concierge-bell"></i>前台</span>
-        <span class="yq-chip is-neutral"><i class="fas fa-user-cog"></i>管理员</span>
-      </div>
-
-      <p class="yq-hint text-center mt-3 mb-0">
+      <p class="text-muted small mt-3 mb-0">
         <i class="fas fa-info-circle mr-1"></i>
         演示账号见 <code>docs/03-实施计划.md</code> §4.2（种子数据 27 个账号，统一初始密码）。
       </p>

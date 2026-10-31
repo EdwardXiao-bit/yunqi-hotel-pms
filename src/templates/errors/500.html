@@ -1,73 +1,16 @@
 {% extends 'base.html' %}
 {% block title %}500 服务器错误 · 云栖酒店{% endblock %}
 {% block page_title %}500 · 服务器内部错误{% endblock %}
-{% block page_subtitle %}请求处理过程中出错，错误已记录{% endblock %}
 {% block breadcrumb_current %}服务器错误{% endblock %}
-
-{% block page_actions %}
-{% if user.role == 'receptionist' %}
-<a href="{% url 'core:reception_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-concierge-bell mr-1"></i>前台工作台</a>
-{% elif user.role == 'admin' %}
-<a href="{% url 'core:manage_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-user-cog mr-1"></i>管理工作台</a>
-{% elif user.role == 'customer' %}
-<a href="{% url 'core:customer_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-home mr-1"></i>我的首页</a>
-{% else %}
-<a href="{% url 'core:login' %}" class="btn btn-primary btn-sm"><i class="fas fa-sign-in-alt mr-1"></i>去登录</a>
-{% endif %}
-{% endblock %}
-
 {% block content %}
-<div class="row">
-  <div class="col-lg-8">
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h2 class="yq-card-title"><i class="fas fa-bug"></i>服务器处理请求时出错了</h2>
-        <div class="yq-hint">500 Internal Server Error</div>
-      </div>
-      <div class="yq-card-body">
-        <div class="d-flex align-items-start mb-3">
-          <div class="display-4 text-monospace text-danger mr-3" style="line-height: 1">500</div>
-          <div>
-            <h3 class="h5 mb-2">这次请求没有完成</h3>
-            <p class="yq-muted mb-0">
-              请求已被记录。若正在演示，请回到首页重试；如果重复出现，把操作步骤与时间告诉值班同学，
-              便于对照服务端日志定位。
-            </p>
-          </div>
-        </div>
-        <div class="alert alert-light border mb-0 small">
-          <i class="fas fa-shield-alt yq-muted mr-1"></i>
-          页面没有提交成功的操作可以直接重试；已经提交成功的订单与账单不受影响，可在“我的预订”里核对。
-        </div>
-      </div>
-      <div class="yq-card-foot d-flex flex-wrap">
-        {% if user.role == 'receptionist' %}
-        <a href="{% url 'core:reception_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-concierge-bell mr-1"></i>前台工作台</a>
-        {% elif user.role == 'admin' %}
-        <a href="{% url 'core:manage_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-user-cog mr-1"></i>管理工作台</a>
-        {% else %}
-        <a href="{% url 'core:login' %}" class="btn btn-primary btn-sm"><i class="fas fa-sign-in-alt mr-1"></i>去登录</a>
-        {% endif %}
-        {% if user.role == 'customer' %}
-        <a href="{% url 'core:my_reservations' %}" class="btn btn-outline-secondary btn-sm ml-2">
-          <i class="fas fa-list-alt mr-1"></i>查看我的预订
-        </a>
-        {% endif %}
-      </div>
-    </div>
-
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h2 class="yq-card-title"><i class="fas fa-tools"></i>值班排查顺序</h2>
-      </div>
-      <div class="yq-card-body">
-        <ol class="yq-hint pl-3 mb-0">
-          <li class="mb-1">确认服务进程仍在运行、数据库可连接（<code>psql</code> 能进 <code>yunqi_hotel</code>）。</li>
-          <li class="mb-1">查看服务端日志里同一时间的异常堆栈，记录首个报错行。</li>
-          <li>若涉及写入，先核对订单 / 账单是否已落库，再决定是否重试。</li>
-        </ol>
-      </div>
-    </div>
+<div class="error-page">
+  <h2 class="headline text-danger">500</h2>
+  <div class="error-content">
+    <h3><i class="fas fa-bug text-danger mr-1"></i>服务器处理请求时出错了</h3>
+    <p>请求已被记录。若正在演示，请回到首页重试，并把操作步骤与时间告诉值班同学。</p>
+    <p class="mb-0">
+      <a href="{% url 'core:customer_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-home mr-1"></i>返回首页</a>
+    </p>
   </div>
 </div>
 {% endblock %}

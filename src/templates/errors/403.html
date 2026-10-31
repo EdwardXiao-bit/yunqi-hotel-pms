@@ -1,92 +1,20 @@
 {% extends 'base.html' %}
 {% block title %}403 无访问权限 · 云栖酒店{% endblock %}
 {% block page_title %}403 · 无访问权限{% endblock %}
-{% block page_subtitle %}当前账号没有打开这个页面的权限{% endblock %}
 {% block breadcrumb_current %}权限不足{% endblock %}
-
-{% block page_actions %}
-{% if user.role == 'receptionist' %}
-<a href="{% url 'core:reception_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-concierge-bell mr-1"></i>前台工作台</a>
-{% elif user.role == 'admin' %}
-<a href="{% url 'core:manage_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-user-cog mr-1"></i>管理工作台</a>
-{% elif user.role == 'customer' %}
-<a href="{% url 'core:customer_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-home mr-1"></i>我的首页</a>
-{% endif %}
-<a href="{% url 'core:login' %}" class="btn btn-outline-secondary btn-sm">
-  <i class="fas fa-exchange-alt mr-1"></i>切换账号
-</a>
-{% endblock %}
-
 {% block content %}
-<div class="row">
-  <div class="col-lg-8">
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h2 class="yq-card-title"><i class="fas fa-lock"></i>角色与页面不匹配</h2>
-        <div class="yq-hint">403 Forbidden</div>
-      </div>
-      <div class="yq-card-body">
-        <div class="d-flex align-items-start mb-3">
-          <div class="display-4 text-monospace text-warning mr-3" style="line-height: 1">403</div>
-          <div>
-            <h3 class="h5 mb-2">当前账号没有访问该页面的权限</h3>
-            <p class="yq-muted mb-0">
-              页面按角色分区：客户只能进客户区、前台只能进前台区、管理员全通。
-              如果你认为这是误判，请联系管理员核对账号的角色字段。
-            </p>
-          </div>
-        </div>
-        <p class="yq-hint mb-0">
-          <i class="fas fa-info-circle mr-1"></i>
-          账号角色存于 <code>app_user.role</code>，取值为 <code>customer</code> / <code>receptionist</code> / <code>admin</code>。
-        </p>
-      </div>
-      <div class="yq-card-foot d-flex flex-wrap">
-        {% if user.role == 'receptionist' %}
-        <a href="{% url 'core:reception_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-concierge-bell mr-1"></i>前台工作台</a>
-        {% elif user.role == 'admin' %}
-        <a href="{% url 'core:manage_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-user-cog mr-1"></i>管理工作台</a>
-        {% elif user.role == 'customer' %}
-        <a href="{% url 'core:customer_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-home mr-1"></i>我的首页</a>
-        {% else %}
-        <a href="{% url 'core:login' %}" class="btn btn-primary btn-sm"><i class="fas fa-sign-in-alt mr-1"></i>去登录</a>
-        {% endif %}
-        <a href="{% url 'core:login' %}" class="btn btn-outline-secondary btn-sm ml-2">切换账号</a>
-        <span class="yq-hint ml-auto">用对应角色的账号重新登录即可</span>
-      </div>
-    </div>
-
-    <div class="yq-card">
-      <div class="yq-card-head">
-        <h2 class="yq-card-title"><i class="fas fa-compass"></i>按角色可去的页面</h2>
-      </div>
-      <div class="yq-card-body is-tight">
-        <div class="table-wrap">
-          <table class="table table-sm">
-            <thead>
-              <tr><th>角色</th><th>工作台</th><th>典型入口</th></tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><span class="yq-chip is-info"><i class="fas fa-user"></i>客户</span></td>
-                <td>我的首页</td>
-                <td class="yq-muted small">可用房查询 · 我的预订</td>
-              </tr>
-              <tr>
-                <td><span class="yq-chip is-success"><i class="fas fa-concierge-bell"></i>前台</span></td>
-                <td>前台工作台</td>
-                <td class="yq-muted small">房态看板 · 预订管理 · 入住 / 退房</td>
-              </tr>
-              <tr>
-                <td><span class="yq-chip is-gold"><i class="fas fa-user-cog"></i>管理员</span></td>
-                <td>管理工作台</td>
-                <td class="yq-muted small">房型与价格 · 经营统计报表</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+<div class="error-page">
+  <h2 class="headline text-warning">403</h2>
+  <div class="error-content">
+    <h3><i class="fas fa-exclamation-triangle text-warning mr-1"></i>当前账号没有访问该页面的权限</h3>
+    <p>
+      页面按角色分区：客户只能进客户区、前台只能进前台区、管理员全通。
+      如果你认为这是误判，请联系管理员核对 <code>app_user.role</code>。
+    </p>
+    <p class="mb-0">
+      <a href="{% url 'core:customer_home' %}" class="btn btn-primary btn-sm"><i class="fas fa-home mr-1"></i>返回首页</a>
+      <a href="{% url 'core:login' %}" class="btn btn-outline-secondary btn-sm">切换账号</a>
+    </p>
   </div>
 </div>
 {% endblock %}
