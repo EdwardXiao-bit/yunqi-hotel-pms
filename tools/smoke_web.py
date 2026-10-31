@@ -1222,6 +1222,7 @@ def main() -> int:
 
     # ---------------------------------------------------------------- P15 增值服务价目表
     from core.models import ServiceItem, ServiceOrder
+    from django.db.models import Sum
     from core.models import CheckInRecord as SvcRecord
 
     items_page = admin_client.get("/manage/service-items/")
@@ -1411,6 +1412,31 @@ def main() -> int:
             check(
                 "84.00" in checkout_body,
                 "P16 结算页把已登记服务费计入账单",
+            )
+
+            # 行数不限：一次提交 5 行（含同一项目重复 2 行）应合并为 2 条明细
+            rows_before = ServiceOrder.objects.count()
+            multi_post = reception_client.post(
+                "/reception/services/",
+                {
+                    "record_id": [in_house_record.pk],
+                    "item_id": [bf.pk, created_item.pk, bf.pk, "", created_item.pk],
+                    "quantity": ["1", "2", "1", "1", "2"],
+                },
+            )
+            plus = ServiceOrder.objects.count() - rows_before
+            check(
+                multi_post.status_code == 302 and plus == 2,
+                "P16 登记页不限行数：5 行提交合并为 2 条明细",
+                "status=%s 明细 +%d" % (multi_post.status_code, plus),
+            )
+            merged = ServiceOrder.objects.filter(check_in_record=in_house_record).aggregate(
+                total=Sum("quantity")
+            )["total"]
+            check(
+                merged == 8,
+                "P16 同项目多行数量合并（已有 2 + 本次 2 + 4 = 8 份）",
+                "合计数量 %s" % merged,
             )
     else:
         rows = ServiceOrder.objects.count()

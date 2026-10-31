@@ -291,7 +291,8 @@ def _submit_service_register(request):
 
     item_ids = request.POST.getlist("item_id")
     quantities = request.POST.getlist("quantity")
-    picked: list[tuple[int, int]] = []
+    # 行数不限；同一个服务项目选了多行时合并数量（避免重复明细）
+    merged: dict[int, int] = {}
     for raw_id, raw_qty in zip(item_ids, quantities):
         if not (raw_id or "").strip():
             continue
@@ -304,10 +305,14 @@ def _submit_service_register(request):
             return _register_error(request, record, "服务数量请填写正整数。")
         if qty > 99:
             return _register_error(request, record, "单项服务一次最多登记 99 份。")
-        picked.append((item_id, qty))
+        merged[item_id] = merged.get(item_id, 0) + qty
 
+    picked: list[tuple[int, int]] = list(merged.items())
     if not picked:
         return _register_error(request, record, "请至少选择一项服务并填写数量。")
+    over = [pk for pk, qty in picked if qty > 99]
+    if over:
+        return _register_error(request, record, "单项服务一次最多登记 99 份。")
 
     items = {item.pk: item for item in ServiceItem.objects.filter(pk__in=[pk for pk, _ in picked])}
     missing = [pk for pk, _ in picked if pk not in items]

@@ -34,24 +34,57 @@
             <small class="form-text text-muted">只列已入住且未退房的客人；散客入住也在其中。</small>
           </div>
 
-          <p class="mb-2 mt-3">选择服务项目（可一次登记多项，留空的行会忽略）：</p>
-          {% for row in "123" %}
-          <div class="form-row align-items-end mb-2">
-            <div class="col-md-8">
-              <label class="small text-muted mb-1" for="item-id-{{ forloop.counter }}">服务项目 {{ forloop.counter }}</label>
-              <select class="form-control" id="item-id-{{ forloop.counter }}" name="item_id">
-                <option value="">不登记</option>
-                {% for item in items %}
-                <option value="{{ item.id }}">{{ item.name }}（{{ item.price|floatformat:2 }} 元/{{ item.unit }}）</option>
-                {% endfor %}
-              </select>
+          <p class="mb-2 mt-3">选择服务项目（可一次登记多项；留空的行会被忽略，行数不限）：</p>
+          <div id="service-rows">
+            {% for row in "123" %}
+            <div class="form-row align-items-end mb-2 service-row">
+              <div class="col-md-8">
+                <label class="small text-muted mb-1">服务项目 {{ forloop.counter }}</label>
+                <select class="form-control" id="item-id-{{ forloop.counter }}" name="item_id">
+                  <option value="">不登记</option>
+                  {% for item in items %}
+                  <option value="{{ item.id }}">{{ item.name }}（{{ item.price|floatformat:2 }} 元/{{ item.unit }}）</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="small text-muted mb-1">数量</label>
+                <input type="number" class="form-control" id="quantity-{{ forloop.counter }}" name="quantity" min="1" max="99" value="1">
+              </div>
+              <div class="col-md-1">
+                <button type="button" class="btn btn-sm btn-outline-secondary btn-block remove-service-row" title="删除这一行">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
             </div>
-            <div class="col-md-3">
-              <label class="small text-muted mb-1" for="quantity-{{ forloop.counter }}">数量</label>
-              <input type="number" class="form-control" id="quantity-{{ forloop.counter }}" name="quantity" min="1" max="99" value="1">
-            </div>
+            {% endfor %}
           </div>
-          {% endfor %}
+          <button type="button" class="btn btn-sm btn-outline-primary mt-1" id="add-service-row">
+            <i class="fas fa-plus mr-1"></i>添加一行
+          </button>
+
+          <template id="service-row-template">
+            <div class="form-row align-items-end mb-2 service-row">
+              <div class="col-md-8">
+                <label class="small text-muted mb-1">服务项目</label>
+                <select class="form-control" name="item_id">
+                  <option value="">不登记</option>
+                  {% for item in items %}
+                  <option value="{{ item.id }}">{{ item.name }}（{{ item.price|floatformat:2 }} 元/{{ item.unit }}）</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="small text-muted mb-1">数量</label>
+                <input type="number" class="form-control" name="quantity" min="1" max="99" value="1">
+              </div>
+              <div class="col-md-1">
+                <button type="button" class="btn btn-sm btn-outline-secondary btn-block remove-service-row" title="删除这一行">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+            </div>
+          </template>
         </div>
 
         <div class="card-footer">
@@ -123,4 +156,45 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  var rows = document.getElementById("service-rows");
+  var tpl = document.getElementById("service-row-template");
+  var addBtn = document.getElementById("add-service-row");
+  if (!rows || !tpl) { return; }
+
+  function addRow() {
+    var node = tpl.content.cloneNode(true);
+    rows.appendChild(node);
+    renumber();
+  }
+
+  function renumber() {
+    var list = rows.querySelectorAll(".service-row");
+    list.forEach(function (row, index) {
+      var label = row.querySelector("label.small");
+      if (label) { label.textContent = "服务项目 " + (index + 1); }
+      var remove = row.querySelector(".remove-service-row");
+      if (remove) { remove.style.visibility = list.length > 1 ? "visible" : "hidden"; }
+    });
+  }
+
+  rows.addEventListener("click", function (event) {
+    var btn = event.target.closest(".remove-service-row");
+    if (!btn) { return; }
+    var row = btn.closest(".service-row");
+    if (row && rows.querySelectorAll(".service-row").length > 1) {
+      row.remove();
+      renumber();
+    }
+  });
+
+  if (addBtn) { addBtn.addEventListener("click", addRow); }
+
+  renumber();
+})();
+</script>
 {% endblock %}
