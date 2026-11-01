@@ -5,7 +5,7 @@ from .checkin import checkin_new, walkin_checkin
 from .checkout import checkout_detail
 from .errors import page_not_found, permission_denied, server_error
 from .home import customer_home, manage_home, reception_home
-from .manage import customer_list, room_type_form, room_type_list
+from .manage import customer_list, room_form, room_list, room_type_form, room_type_list
 from .reports import reports, reservation_export, reservation_list
 from .reservations import (
     my_reservation_cancel,
@@ -15,8 +15,18 @@ from .reservations import (
     reservation_create,
 )
 from .rooms import available_rooms
+from .services import (
+    service_item_form,
+    service_item_list,
+    service_record_list,
+    service_register,
+)
 
 __all__ = [
+    "service_item_list",
+    "service_item_form",
+    "service_register",
+    "service_record_list",
     "login_view",
     "logout_view",
     "customer_home",

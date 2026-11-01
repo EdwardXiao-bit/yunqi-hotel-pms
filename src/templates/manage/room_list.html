@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block title %}房间维护 · 云栖酒店{% endblock %}
+{% block page_title %}房间维护{% endblock %}
+{% block breadcrumb_current %}系统管理{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-primary">
+      <div class="inner"><h3>{{ summary.total }}</h3><p>房间总数</p></div>
+      <div class="icon"><i class="fas fa-door-open"></i></div>
+    </div>
+  </div>
+  {% for item in summary.by_status %}
+  <div class="col-lg-3 col-6">
+    <div class="small-box {% if item.value == 'available' %}bg-success{% elif item.value == 'cleaning' %}bg-info{% elif item.value == 'maintenance' %}bg-warning{% else %}bg-secondary{% endif %}">
+      <div class="inner"><h3>{{ item.count }}</h3><p>{{ item.label }}</p></div>
+      <div class="icon"><i class="fas fa-bed"></i></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="close" data-dismiss="alert" aria-label="关闭"><span aria-hidden="true">&times;</span></button>
+  </div>
+  {% endfor %}
+{% endif %}
+
+<div class="card card-outline card-primary">
+  <div class="card-header">
+    <h5 class="card-title mb-0">房间列表</h5>
+    <div class="card-tools">
+      <a class="btn btn-sm btn-primary" href="{% url 'core:room_new' %}">
+        <i class="fas fa-plus mr-1"></i>新增房间
+      </a>
+    </div>
+  </div>
+
+  <div class="card-body pb-2">
+    <form method="get" class="form-inline">
+      <label class="mr-1" for="filter-room-type">房型</label>
+      <select class="form-control form-control-sm mr-3 mb-2" id="filter-room-type" name="room_type_id">
+        <option value="">全部房型</option>
+        {% for room_type in room_types %}
+        <option value="{{ room_type.id }}" {% if filters.room_type_id == room_type.id %}selected{% endif %}>{{ room_type.name }}</option>
+        {% endfor %}
+      </select>
+
+      <label class="mr-1" for="filter-floor">楼层</label>
+      <select class="form-control form-control-sm mr-3 mb-2" id="filter-floor" name="floor">
+        <option value="">全部楼层</option>
+        {% for floor in floors %}
+        <option value="{{ floor }}" {% if filters.floor == floor %}selected{% endif %}>{{ floor }} 层</option>
+        {% endfor %}
+      </select>
+
+      <label class="mr-1" for="filter-status">房态</label>
+      <select class="form-control form-control-sm mr-3 mb-2" id="filter-status" name="status">
+        <option value="">全部房态</option>
+        {% for option in status_options %}
+        <option value="{{ option.value }}" {% if filters.status == option.value %}selected{% endif %}>{{ option.label }}</option>
+        {% endfor %}
+      </select>
+
+      <label class="mr-1" for="filter-keyword">房号</label>
+      <input type="text" class="form-control form-control-sm mr-3 mb-2" id="filter-keyword" name="keyword" value="{{ filters.keyword }}" placeholder="输入房号片段">
+
+      <button type="submit" class="btn btn-sm btn-primary mb-2"><i class="fas fa-search mr-1"></i>筛选</button>
+      <a href="{% url 'core:room_list' %}" class="btn btn-sm btn-outline-secondary mb-2 ml-1">重置</a>
+    </form>
+  </div>
+
+  <div class="card-body p-0">
+    <table class="table table-hover table-sm mb-0">
+      <thead>
+        <tr>
+          <th>房号</th>
+          <th>房型</th>
+          <th>楼层</th>
+          <th>朝向</th>
+          <th>房态</th>
+          <th>备注</th>
+          <th class="text-right">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for room in rooms %}
+        <tr>
+          <td class="text-monospace">{{ room.room_no }}</td>
+          <td>{{ room.room_type.name }}</td>
+          <td>{{ room.floor }} 层</td>
+          <td>{{ room.get_orientation_display|default:'—' }}</td>
+          <td>
+            <span class="badge {% if room.status == 'available' %}badge-success{% elif room.status == 'cleaning' %}badge-info{% elif room.status == 'maintenance' %}badge-warning{% else %}badge-secondary{% endif %}">
+              {{ room.get_status_display }}
+            </span>
+          </td>
+          <td>{{ room.remark|default:'—' }}</td>
+          <td class="text-right">
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'core:room_edit' room.id %}">编辑</a>
+            <form method="post" class="d-inline" data-confirm="确定删除房间 {{ room.room_no }} 吗？已产生预订的房间不会被删除。">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="room_id" value="{{ room.id }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">没有符合条件的房间。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if paginator.num_pages > 1 %}
+  <div class="card-footer clearfix">
+    {% include 'partials/pagination.html' %}
+  </div>
+  {% endif %}
+</div>
+
+<div class="card card-outline card-secondary">
+  <div class="card-header">
+    <h5 class="card-title mb-0"><i class="fas fa-layer-group mr-1"></i>批量新增房间</h5>
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="bulk">
+    <div class="card-body">
+      <p class="text-muted mb-3">同一房型、同一楼层一次加多间：房号用逗号、空格或换行分隔，例如 <code>801, 802, 803</code>。已存在的房号会被跳过。</p>
+      <div class="row">
+        <div class="col-md-4">
+          <div class="form-group">
+            <label for="bulk-room-type">房型 <span class="text-danger">*</span></label>
+            <select class="form-control" id="bulk-room-type" name="room_type_id" required>
+              <option value="">请选择房型</option>
+              {% for room_type in room_types %}
+              <option value="{{ room_type.id }}" {% if not room_type.is_active %}disabled{% endif %}>{{ room_type.name }}{% if not room_type.is_active %}（已停用）{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="form-group">
+            <label for="bulk-floor">楼层 <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" id="bulk-floor" name="floor" min="{{ floor_range.0 }}" max="{{ floor_range.1 }}" required>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="form-group">
+            <label for="bulk-orientation">朝向</label>
+            <select class="form-control" id="bulk-orientation" name="orientation">
+              <option value="">不填</option>
+              {% for option in orientation_options %}
+              <option value="{{ option.value }}">{{ option.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="form-group">
+            <label for="bulk-status">初始房态</label>
+            <select class="form-control" id="bulk-status" name="status">
+              {% for option in status_options %}
+              <option value="{{ option.value }}" {% if option.value == 'available' %}selected{% endif %}>{{ option.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="col-md-2">
+          <div class="form-group">
+            <label for="bulk-room-nos">房号列表 <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="bulk-room-nos" name="room_nos" placeholder="801, 802, 803" required>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-footer">
+      <button type="submit" class="btn btn-primary"><i class="fas fa-plus mr-1"></i>批量新增</button>
+      <span class="text-muted ml-2">房号必须唯一；新增后可在房态看板里设置清洁/维修/停用。</span>
+    </div>
+  </form>
+</div>
+{% endblock %}

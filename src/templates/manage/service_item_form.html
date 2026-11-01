@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}{% if item %}编辑服务项目{% else %}新增服务项目{% endif %} · 云栖酒店{% endblock %}
+{% block page_title %}{% if item %}编辑服务项目{% else %}新增服务项目{% endif %}{% endblock %}
+{% block breadcrumb_current %}系统管理{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card card-outline card-primary">
+      <div class="card-header"><h5 class="card-title mb-0">服务项目信息</h5></div>
+      <form method="post">
+        {% csrf_token %}
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group col-md-5">
+              <label for="code">服务编码 <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="code" name="code" maxlength="20" value="{{ form.code }}" required>
+              <small class="form-text text-muted">短编码，例如 BF、SPA、PICK。</small>
+            </div>
+            <div class="form-group col-md-7">
+              <label for="name">服务名称 <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="name" name="name" maxlength="50" value="{{ form.name }}" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-4">
+              <label for="unit">计量单位</label>
+              <input type="text" class="form-control" id="unit" name="unit" maxlength="10" value="{{ form.unit }}" placeholder="份 / 次 / 件">
+            </div>
+            <div class="form-group col-md-4">
+              <label for="price">单价(元) <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="price" name="price" value="{{ form.price }}" placeholder="68.00" required>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="is_active">状态</label>
+              <select class="form-control" id="is_active" name="is_active">
+                {% for value, label in active_options %}
+                <option value="{{ value }}" {% if form.is_active == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save mr-1"></i>{% if item %}保存{% else %}新增{% endif %}</button>
+          <a href="{% url 'core:service_item_list' %}" class="btn btn-outline-secondary ml-1">返回价目表</a>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card card-outline card-info">
+      <div class="card-header"><h5 class="card-title mb-0"><i class="fas fa-circle-info mr-1"></i>口径说明</h5></div>
+      <div class="card-body">
+        <ul class="pl-3 mb-0">
+          <li>编码与名称都唯一，编码用于报表与对账。</li>
+          <li>单价改动只影响之后登记的消费；已登记明细保存当时单价快照。</li>
+          <li>下架后前台与结算页不再可选中，历史明细与账单不受影响。</li>
+          <li>有消费记录的项目不能删除，只能下架。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

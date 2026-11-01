@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}增值服务价目表 · 云栖酒店{% endblock %}
+{% block page_title %}增值服务价目表{% endblock %}
+{% block breadcrumb_current %}系统管理{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-primary">
+      <div class="inner"><h3>{{ summary.total }}</h3><p>服务项目</p></div>
+      <div class="icon"><i class="fas fa-concierge-bell"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-success">
+      <div class="inner"><h3>{{ summary.active }}</h3><p>在售项目</p></div>
+      <div class="icon"><i class="fas fa-check-circle"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-info">
+      <div class="inner"><h3>{{ summary.orders }}</h3><p>消费明细条数</p></div>
+      <div class="icon"><i class="fas fa-receipt"></i></div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-6">
+    <div class="small-box bg-secondary">
+      <div class="inner"><h3>{{ summary.revenue|floatformat:2 }}</h3><p>累计服务金额(元)</p></div>
+      <div class="icon"><i class="fas fa-coins"></i></div>
+    </div>
+  </div>
+</div>
+
+<div class="card card-outline card-primary">
+  <div class="card-header">
+    <h5 class="card-title mb-0">服务项目</h5>
+    <div class="card-tools">
+      <a class="btn btn-sm btn-primary" href="{% url 'core:service_item_new' %}">
+        <i class="fas fa-plus mr-1"></i>新增服务项目
+      </a>
+    </div>
+  </div>
+
+  <div class="card-body pb-2">
+    <form method="get" class="form-inline">
+      <label class="mr-1" for="filter-keyword">关键字</label>
+      <input type="text" class="form-control form-control-sm mr-3 mb-2" id="filter-keyword" name="keyword" value="{{ keyword }}" placeholder="编码或名称">
+      <label class="mr-1" for="filter-active">状态</label>
+      <select class="form-control form-control-sm mr-3 mb-2" id="filter-active" name="active">
+        <option value="">全部</option>
+        <option value="1" {% if active == '1' %}selected{% endif %}>在售</option>
+        <option value="0" {% if active == '0' %}selected{% endif %}>下架</option>
+      </select>
+      <button type="submit" class="btn btn-sm btn-primary mb-2"><i class="fas fa-search mr-1"></i>筛选</button>
+      <a href="{% url 'core:service_item_list' %}" class="btn btn-sm btn-outline-secondary mb-2 ml-1">重置</a>
+    </form>
+  </div>
+
+  <div class="card-body p-0">
+    <table class="table table-hover table-sm mb-0">
+      <thead>
+        <tr>
+          <th>编码</th>
+          <th>服务名称</th>
+          <th>单位</th>
+          <th class="text-right">单价(元)</th>
+          <th class="text-right">已登记次数</th>
+          <th class="text-right">累计金额(元)</th>
+          <th>状态</th>
+          <th class="text-right">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td class="text-monospace">{{ item.code }}</td>
+          <td>{{ item.name }}</td>
+          <td>{{ item.unit }}</td>
+          <td class="text-right">{{ item.price|floatformat:2 }}</td>
+          <td class="text-right">{{ item.order_count }}</td>
+          <td class="text-right">{{ item.order_total|default:'0.00'|floatformat:2 }}</td>
+          <td>
+            {% if item.is_active %}
+            <span class="badge badge-success">在售</span>
+            {% else %}
+            <span class="badge badge-secondary">下架</span>
+            {% endif %}
+          </td>
+          <td class="text-right">
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'core:service_item_edit' item.id %}">编辑</a>
+            <form method="post" class="d-inline">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="toggle">
+              <input type="hidden" name="item_id" value="{{ item.id }}">
+              <button type="submit" class="btn btn-sm btn-outline-secondary">{% if item.is_active %}下架{% else %}上架{% endif %}</button>
+            </form>
+            <form method="post" class="d-inline" data-confirm="确定删除服务项目「{{ item.name }}」吗？已有消费记录的项目不会被删除。">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="item_id" value="{{ item.id }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">没有符合条件的服务项目。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-footer text-muted">
+    价目表只决定「能不能选、按什么价」；已登记的消费明细按当时单价快照保存，改价不影响历史账单。下架后历史明细与结算不受影响。
+  </div>
+</div>
+{% endblock %}

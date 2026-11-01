@@ -112,6 +112,22 @@
             <dt class="col-sm-5">服务费</dt><dd class="col-sm-7 text-right text-monospace">{{ check_in_record.service_charge|floatformat:2 }}</dd>
             <dt class="col-sm-5">应收合计</dt><dd class="col-sm-7 text-right text-monospace"><strong>{{ check_in_record.total_charge|floatformat:2 }}</strong></dd>
           </dl>
+          {% if service_orders %}
+            <hr class="my-2">
+            <p class="mb-1 text-muted">增值服务消费</p>
+            <ul class="list-unstyled mb-1">
+              {% for order in service_orders %}
+                <li class="d-flex justify-content-between">
+                  <span>{{ order.service_item.name }} ×{{ order.quantity }}</span>
+                  <span class="text-monospace">{{ order.amount|floatformat:2 }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+            <p class="d-flex justify-content-between mb-0">
+              <span class="text-muted">服务费合计</span>
+              <span class="text-monospace">{{ service_total|floatformat:2 }}</span>
+            </p>
+          {% endif %}
           {% if payments %}
             <hr class="my-2">
             <p class="mb-1 text-muted">支付流水</p>

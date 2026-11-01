@@ -28,11 +28,14 @@ from django.urls import reverse
 from core.decorators import role_required
 from core.models import (
     BED_TYPE_CHOICES,
+    ORIENTATION_CHOICES,
+    ROOM_STATUS_CHOICES,
     AppUser,
     Customer,
     RatePlan,
     Reservation,
     Room,
+    RoomBlock,
     RoomType,
 )
 
@@ -473,3 +476,364 @@ def customer_list(request):
             "role_labels": dict(AppUser._meta.get_field("role").choices),
         },
     )
+
+
+# ---------------------------------------------------------------- 房间维护（P14，F02）
+
+ROOM_STATUS_LABELS = dict(ROOM_STATUS_CHOICES)
+ORIENTATION_LABELS = dict(ORIENTATION_CHOICES)
+ROOM_STATUS_ORDER = [value for value, _label in ROOM_STATUS_CHOICES]
+FLOOR_MIN, FLOOR_MAX = -2, 99
+
+
+def _room_querystring(request) -> str:
+    query = request.GET.copy()
+    query.pop("page", None)
+    return query.urlencode()
+
+
+def _room_filter_values(request) -> dict:
+    """筛选条件：房型 / 楼层 / 房态 / 房号关键字。"""
+    room_type_raw = (request.GET.get("room_type_id") or "").strip()
+    floor_raw = (request.GET.get("floor") or "").strip()
+    status = (request.GET.get("status") or "").strip()
+    keyword = (request.GET.get("keyword") or "").strip()
+    return {
+        "room_type_id": _as_int(room_type_raw),
+        "floor": _as_int(floor_raw),
+        "status": status if status in ROOM_STATUS_LABELS else "",
+        "keyword": keyword,
+    }
+
+
+@role_required("admin")
+def room_list(request):
+    """房间维护：按房型/楼层/房态筛选，支持单间新增、批量新增、编辑与删除。"""
+    if request.method == "POST":
+        return _handle_room_action(request)
+
+    filters = _room_filter_values(request)
+    rooms = Room.objects.select_related("room_type")
+
+    if filters["room_type_id"]:
+        rooms = rooms.filter(room_type_id=filters["room_type_id"])
+    if filters["floor"] is not None:
+        rooms = rooms.filter(floor=filters["floor"])
+    if filters["status"]:
+        rooms = rooms.filter(status=filters["status"])
+    if filters["keyword"]:
+        rooms = rooms.filter(room_no__icontains=filters["keyword"])
+
+    rooms = rooms.order_by("floor", "room_no")
+    paginator = Paginator(rooms, PAGE_SIZE)
+    page = paginator.get_page(request.GET.get("page"))
+
+    all_rooms = Room.objects.all()
+    summary = {
+        "total": all_rooms.count(),
+        "by_status": [
+            {
+                "value": value,
+                "label": ROOM_STATUS_LABELS[value],
+                "count": all_rooms.filter(status=value).count(),
+            }
+            for value in ROOM_STATUS_ORDER
+        ],
+        "room_types": RoomType.objects.filter(is_active=True).count(),
+    }
+
+    return render(
+        request,
+        "manage/room_list.html",
+        {
+            "page": page,
+            "rooms": page.object_list,
+            "paginator": paginator,
+            "querystring": _room_querystring(request),
+            "filters": filters,
+            "room_types": RoomType.objects.order_by("name"),
+            "floors": (
+                Room.objects.order_by("floor")
+                .values_list("floor", flat=True)
+                .distinct()
+            ),
+            "status_options": [{"value": v, "label": ROOM_STATUS_LABELS[v]} for v in ROOM_STATUS_ORDER],
+            "orientation_options": [
+                {"value": value, "label": label} for value, label in ORIENTATION_CHOICES
+            ],
+            "orientation_labels": ORIENTATION_LABELS,
+            "room_status_labels": ROOM_STATUS_LABELS,
+            "summary": summary,
+            "today": date.today(),
+        },
+    )
+
+
+def _handle_room_action(request):
+    action = (request.POST.get("action") or "").strip()
+    if action == "bulk":
+        return _room_bulk_create(request)
+    if action == "delete":
+        return _room_delete(request)
+    messages.error(request, "未识别的操作。")
+    return redirect("core:room_list")
+
+
+def _parse_room_nos(raw: str) -> list[str]:
+    """把「801,802 803；804」这类输入拆成房号列表（去重保序）。"""
+    cleaned = raw.replace("，", ",").replace("、", ",").replace("；", ",").replace(";", ",")
+    for sep in ("\n", "\r", "\t", " "):
+        cleaned = cleaned.replace(sep, ",")
+    seen: list[str] = []
+    for item in cleaned.split(","):
+        room_no = item.strip()
+        if room_no and room_no not in seen:
+            seen.append(room_no)
+    return seen
+
+
+def _room_bulk_create(request):
+    """批量新增房间：同房型、同楼层、同朝向一次建多间。"""
+    room_type_id = _as_int(request.POST.get("room_type_id"))
+    floor = _as_int(request.POST.get("floor"))
+    orientation = (request.POST.get("orientation") or "").strip() or None
+    status = (request.POST.get("status") or "available").strip()
+    room_nos = _parse_room_nos(request.POST.get("room_nos") or "")
+
+    room_type = RoomType.objects.filter(pk=room_type_id).first() if room_type_id else None
+    if room_type is None:
+        messages.error(request, "请选择房型。")
+        return redirect("core:room_list")
+    if not room_nos:
+        messages.error(request, "请填写房号，多个房号用逗号、空格或换行分隔。")
+        return redirect("core:room_list")
+    if floor is None or not (FLOOR_MIN <= floor <= FLOOR_MAX):
+        messages.error(request, "楼层请填写 %d ~ %d 之间的整数。" % (FLOOR_MIN, FLOOR_MAX))
+        return redirect("core:room_list")
+    if orientation is not None and orientation not in ORIENTATION_LABELS:
+        orientation = None
+    if status not in ROOM_STATUS_LABELS:
+        status = "available"
+    if len(room_nos) > 50:
+        messages.error(request, "一次最多批量新增 50 间。")
+        return redirect("core:room_list")
+
+    created: list[str] = []
+    skipped: list[str] = []
+    try:
+        with transaction.atomic():
+            for room_no in room_nos:
+                if len(room_no) > 10:
+                    skipped.append(room_no)
+                    continue
+                if Room.objects.filter(room_no=room_no).exists():
+                    skipped.append(room_no)
+                    continue
+                Room.objects.create(
+                    room_type=room_type,
+                    room_no=room_no,
+                    floor=floor,
+                    orientation=orientation,
+                    status=status,
+                    remark=None,
+                )
+                created.append(room_no)
+    except IntegrityError:
+        messages.error(request, "批量新增失败：房号有重复，请检查后重试。")
+        return redirect("core:room_list")
+
+    if created:
+        messages.success(
+            request,
+            "已新增 %d 间房：%s（房型 %s，%d 层）。" % (
+                len(created), "、".join(created), room_type.name, floor,
+            ),
+        )
+    if skipped:
+        messages.warning(request, "以下房号已存在或超长，已跳过：%s。" % "、".join(skipped))
+    if not created and not skipped:
+        messages.error(request, "没有可新增的房号。")
+    return redirect("core:room_list")
+
+
+@role_required("admin")
+def room_form(request, pk: int | None = None):
+    """单间房间的新增与编辑。"""
+    room = get_object_or_404(Room, pk=pk) if pk else None
+    if request.method == "POST":
+        return _save_room(request, room)
+
+    return render(
+        request,
+        "manage/room_form.html",
+        {
+            "room": room,
+            "form": _room_form_values(room),
+            "room_types": RoomType.objects.order_by("name"),
+            "orientation_options": [
+                {"value": value, "label": label} for value, label in ORIENTATION_CHOICES
+            ],
+            "status_options": [{"value": v, "label": ROOM_STATUS_LABELS[v]} for v in ROOM_STATUS_ORDER],
+            "floor_range": (FLOOR_MIN, FLOOR_MAX),
+        },
+    )
+
+
+def _room_form_values(room: Room | None, posted: dict | None = None) -> dict:
+    posted = posted or {}
+
+    def pick(key: str, default: str = "") -> str:
+        if key in posted:
+            return posted.get(key) or ""
+        if room is None:
+            return default
+        value = getattr(room, key)
+        return "" if value is None else str(value)
+
+    return {
+        "room_no": pick("room_no"),
+        "room_type_id": pick("room_type_id", str(room.room_type_id) if room else ""),
+        "floor": pick("floor", ""),
+        "orientation": pick("orientation"),
+        "status": pick("status", "available") if room is None else pick("status"),
+        "remark": pick("remark"),
+    }
+
+
+def _save_room(request, room: Room | None):
+    post = request.POST
+    values = _room_form_values(room, post)
+    room_no = values["room_no"].strip()
+    room_type_id = _as_int(values["room_type_id"])
+    floor = _as_int(values["floor"])
+    orientation = values["orientation"].strip() or None
+    status = values["status"].strip()
+    remark = values["remark"].strip()
+
+    errors: list[str] = []
+    if not room_no:
+        errors.append("请填写房号。")
+    elif len(room_no) > 10:
+        errors.append("房号最多 10 个字符。")
+    else:
+        duplicated = Room.objects.filter(room_no=room_no)
+        if room is not None:
+            duplicated = duplicated.exclude(pk=room.pk)
+        if duplicated.exists():
+            errors.append("房号 %s 已存在，请换一个。" % room_no)
+    room_type = RoomType.objects.filter(pk=room_type_id).first() if room_type_id else None
+    if room_type is None:
+        errors.append("请选择房型。")
+    if floor is None or not (FLOOR_MIN <= floor <= FLOOR_MAX):
+        errors.append("楼层请填写 %d ~ %d 之间的整数。" % (FLOOR_MIN, FLOOR_MAX))
+    if orientation is not None and orientation not in ORIENTATION_LABELS:
+        errors.append("朝向请从下拉选项中选择。")
+    if status not in ROOM_STATUS_LABELS:
+        errors.append("房态请从下拉选项中选择。")
+    if len(remark) > 200:
+        errors.append("备注最多 200 个字符。")
+
+    if errors:
+        for item in errors:
+            messages.error(request, item)
+        return render(
+            request,
+            "manage/room_form.html",
+            {
+                "room": room,
+                "form": values,
+                "room_types": RoomType.objects.order_by("name"),
+                "orientation_options": [
+                    {"value": value, "label": label} for value, label in ORIENTATION_CHOICES
+                ],
+                "status_options": [
+                    {"value": v, "label": ROOM_STATUS_LABELS[v]} for v in ROOM_STATUS_ORDER
+                ],
+                "floor_range": (FLOOR_MIN, FLOOR_MAX),
+            },
+        )
+
+    if room is None:
+        room = Room(
+            room_no=room_no,
+            room_type=room_type,
+            floor=floor,
+            orientation=orientation,
+            status=status,
+            remark=remark or None,
+        )
+        action_label = "新增"
+    else:
+        room.room_no = room_no
+        room.room_type = room_type
+        room.floor = floor
+        room.orientation = orientation
+        room.status = status
+        room.remark = remark or None
+        action_label = "保存"
+
+    try:
+        with transaction.atomic():
+            _set_room_operator(request.user)
+            room.save()
+    except IntegrityError as exc:
+        messages.error(request, _translate_room_error(exc, room_no))
+        return redirect("core:room_form", pk=room.pk) if room.pk else redirect("core:room_form_new")
+
+    messages.success(
+        request,
+        "房间 %s 已%s（%s · %d 层 · %s）。" % (
+            room.room_no, action_label, room.room_type.name, room.floor,
+            ROOM_STATUS_LABELS.get(room.status, room.status),
+        ),
+    )
+    return redirect("core:room_list")
+
+
+def _set_room_operator(user) -> None:
+    """把当前操作人写进事务级会话变量，供 trg_room_status_log 记录 changed_by。"""
+    if connection.vendor != "postgresql" or not getattr(user, "is_authenticated", False):
+        return
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT set_config('app.current_user_id', %s, true)", [str(user.pk)])
+
+
+def _translate_room_error(exc: Exception, room_no: str) -> str:
+    text = str(exc)
+    if "uq_room_room_no" in text or "room_no" in text:
+        return "房号 %s 已存在，请换一个。" % room_no
+    return "保存失败：数据校验未通过，请检查房号与房型。"
+
+
+def _room_delete(request):
+    """删除房间：有预订/封禁记录时拒绝（改为停用）。"""
+    room_id = _as_int(request.POST.get("room_id"))
+    room = Room.objects.filter(pk=room_id).first()
+    if room is None:
+        messages.error(request, "房间不存在或已被删除。")
+        return redirect("core:room_list")
+
+    if Reservation.objects.filter(room_id=room.pk).exists():
+        messages.error(
+            request,
+            "房间 %s 已有预订记录，不能删除；如果不再使用，请把房态改为「停用」。"
+            % room.room_no,
+        )
+        return redirect("core:room_list")
+    if RoomBlock.objects.filter(room_id=room.pk).exists():
+        messages.error(
+            request,
+            "房间 %s 有维修/停用登记，不能删除；请先结束这些登记，或把房态改为「停用」。"
+            % room.room_no,
+        )
+        return redirect("core:room_list")
+
+    try:
+        with transaction.atomic():
+            room.delete()
+    except IntegrityError:
+        messages.error(request, "房间 %s 仍被其他数据引用，不能删除。" % room.room_no)
+        return redirect("core:room_list")
+
+    messages.success(request, "房间 %s 已删除。" % room.room_no)
+    return redirect("core:room_list")

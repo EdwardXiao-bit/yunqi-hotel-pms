@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}增值服务消费记录 · 云栖酒店{% endblock %}
+{% block page_title %}增值服务消费记录{% endblock %}
+{% block breadcrumb_current %}前台作业{% endblock %}
+
+{% block content %}
+<div class="card card-outline card-primary">
+  <div class="card-header">
+    <h5 class="card-title mb-0">消费明细（{{ count }} 条，合计 {{ total|floatformat:2 }} 元）</h5>
+    <div class="card-tools">
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'core:service_register' %}">
+        <i class="fas fa-plus mr-1"></i>去登记
+      </a>
+    </div>
+  </div>
+
+  <div class="card-body pb-2">
+    <form method="get" class="form-inline">
+      <label class="mr-1" for="keyword">关键字</label>
+      <input type="text" class="form-control form-control-sm mr-3 mb-2" id="keyword" name="keyword" value="{{ keyword }}" placeholder="房号 / 客人 / 手机号 / 项目">
+      <button type="submit" class="btn btn-sm btn-primary mb-2"><i class="fas fa-search mr-1"></i>筛选</button>
+      <a href="{% url 'core:service_record_list' %}" class="btn btn-sm btn-outline-secondary mb-2 ml-1">重置</a>
+    </form>
+  </div>
+
+  <div class="card-body p-0">
+    <table class="table table-hover table-sm mb-0">
+      <thead>
+        <tr>
+          <th>登记时间</th>
+          <th>房号</th>
+          <th>客人</th>
+          <th>服务项目</th>
+          <th class="text-right">数量</th>
+          <th class="text-right">单价(元)</th>
+          <th class="text-right">金额(元)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in orders %}
+        <tr>
+          <td>{{ order.ordered_at|date:"Y-m-d H:i" }}</td>
+          <td class="text-monospace">{{ order.check_in_record.reservation.room.room_no }}</td>
+          <td>{{ order.check_in_record.guest_name }}</td>
+          <td>{{ order.service_item.name }}</td>
+          <td class="text-right">{{ order.quantity }}</td>
+          <td class="text-right">{{ order.unit_price|floatformat:2 }}</td>
+          <td class="text-right">{{ order.amount|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">没有符合条件的消费记录。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if count > 500 %}
+  <div class="card-footer text-muted">仅显示最近 500 条，可用关键字缩小范围。</div>
+  {% endif %}
+</div>
+{% endblock %}

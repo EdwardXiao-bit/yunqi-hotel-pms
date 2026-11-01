@@ -309,9 +309,17 @@ def _submit_checkout(request, record: CheckInRecord):
 
     # ---- 先在内存里算一遍账单，差额不平就不落库
     room_charge = _room_charge(record, checkout_at)
-    service_charge = sum(
-        (Decimal(str(picked_items[item_pk].price)) * qty for item_pk, qty in picked.items()),
+    # 服务费 = 入住期间已登记的明细（可能在前台「增值服务」页登记）+ 本次结算新增的行
+    registered_service = sum(
+        (Decimal(str(order.amount)) for order in _service_orders(record)),
         Decimal("0.00"),
+    )
+    service_charge = (
+        registered_service
+        + sum(
+            (Decimal(str(picked_items[item_pk].price)) * qty for item_pk, qty in picked.items()),
+            Decimal("0.00"),
+        )
     ).quantize(CENT)
     total_charge = (room_charge + extra + service_charge).quantize(CENT)
     settled_before = settle_summary(record)["settled"]
