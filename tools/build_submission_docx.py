@@ -11,7 +11,6 @@ import glob
 import os
 
 from docx import Document
-from docx.enum.section import WD_ORIENT, WD_SECTION
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls, qn
@@ -166,18 +165,7 @@ for text in DESC_PARAS:
 h1(doc, "三、功能清单")
 body_para(doc, FUNC_NOTE, keep_with_next=True)
 
-# ---- 切到 A4 横向，逐页放 SR 表截图（每页 7 条需求）----
-sec = doc.add_section(WD_SECTION.NEW_PAGE)
-sec.orientation = WD_ORIENT.LANDSCAPE
-sec.page_width = Cm(29.7)
-sec.page_height = Cm(21.0)
-sec.top_margin = Cm(2.0)
-sec.bottom_margin = Cm(2.0)
-sec.left_margin = Cm(2.0)
-sec.right_margin = Cm(2.0)
-sec.footer_distance = Cm(1.2)
-LAND_W = Cm(29.7 - 2.0 * 2)  # 25.7cm
-
+# ---- 不改变页面尺寸：SR 表截图按版心宽度缩小插入（A4 纵向，4 张逐页）----
 imgs = figure_images()
 if not imgs:
     raise SystemExit(f"缺少截图：{os.path.join(IMG_DIR, 'sr-list-*.png')}")
@@ -188,7 +176,7 @@ for i, img in enumerate(imgs, start=1):
     p.paragraph_format.space_before = Pt(0)
     p.paragraph_format.space_after = Pt(2)
     p.paragraph_format.keep_with_next = True
-    p.add_run().add_picture(img, width=LAND_W)
+    p.add_run().add_picture(img, width=USABLE_W)
 
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -196,22 +184,9 @@ for i, img in enumerate(imgs, start=1):
     cap = f"图 {i}　软件功能清单（SR-{1 + (i - 1) * 7:02d}~SR-{min(28, i * 7):02d}）"
     set_run_font(p.add_run(cap), cn="宋体", size=10.5)
 
-    if i < len(imgs):
-        doc.add_page_break()
-
-# ---- 切回纵向，供「四、数据库要点」使用 ----
-sec = doc.add_section(WD_SECTION.NEW_PAGE)
-sec.orientation = WD_ORIENT.PORTRAIT
-sec.page_width = Cm(21.0)
-sec.page_height = Cm(29.7)
-sec.top_margin = Cm(2.54)
-sec.bottom_margin = Cm(2.54)
-sec.left_margin = Cm(3.17)
-sec.right_margin = Cm(3.17)
-sec.footer_distance = Cm(1.5)
 
 # ---- 四、数据库要点 ----
-h1(doc, "四、数据库要点")
+h1(doc, "四、数据库要点", page_break=True)
 for text in DB_PARAS:
     body_para(doc, text)
 

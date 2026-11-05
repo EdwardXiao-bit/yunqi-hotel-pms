@@ -71,22 +71,21 @@ check(any(t.startswith("软件功能清单按需求规格") for t in texts), "�
 check(any("13 张表" in t and "room_block" in t and "reservation_price" in t for t in texts), "数据库要点含 13 表 + 新增两表")
 check(any("EXCLUDE USING gist" in t and "during" in t for t in texts), "数据库要点含区间排他约束")
 
-# 截图：SR 表 4 页，A4 横向，宽度 = 29.7 - 2*2.0 = 25.7cm
+# 截图：SR 表 4 页，按版心宽度缩小插入（不改页面尺寸，全篇 A4 纵向 14.66cm）
 n_img = len(doc.inline_shapes)
 check(n_img == 4, f"内嵌图片数 {n_img}（期望 4：SR 表分 4 页）")
 w_list = [round(s.width.cm, 2) for s in doc.inline_shapes]
-check(all(abs(w - 25.7) < 0.15 for w in w_list), f"图片宽度 {w_list}cm（期望 25.7cm，A4 横向）")
+check(all(abs(w - 14.66) < 0.1 for w in w_list), f"图片宽度 {w_list}cm（期望 14.66cm，版心宽）")
 caps = [t for t in texts if t.startswith("图 ")]
 check(len(caps) == n_img and caps and caps[0].startswith("图 1"), f"图注 {caps}")
 h_list = [round(s.height.cm, 2) for s in doc.inline_shapes]
-check(all(h < 17.0 for h in h_list), f"图片高度 {h_list}cm 未超横向版心高度")
+check(all(h < 24.6 for h in h_list), f"图片高度 {h_list}cm 未超纵向版心高度")
 check(any("28 条功能需求" in t for t in texts), "功能清单说明写明 28 条功能需求")
 check(any("SR-01~SR-28" in t for t in texts), "功能清单说明写明 SR-01~SR-28")
 secs = doc.sections
-check(len(secs) == 3, f"节数 {len(secs)}（期望 3：纵向-横向-纵向）")
-land = [s for s in secs if s.page_width > s.page_height]
-check(len(land) == 1 and round(land[0].page_width.cm, 1) == 29.7 and round(land[0].page_height.cm, 1) == 21.0,
-      f"中间一节为 A4 横向（{[(round(s.page_width.cm,1), round(s.page_height.cm,1)) for s in secs]}）")
+check(len(secs) == 1, f"节数 {len(secs)}（期望 1：全篇 A4 纵向，不改页面尺寸）")
+check(all(round(s.page_width.cm, 1) == 21.0 and round(s.page_height.cm, 2) == 29.7 for s in secs),
+      f"所有节均为 A4 纵向（{[(round(s.page_width.cm,1), round(s.page_height.cm,1)) for s in secs]}）")
 
 sizes = {run.font.size.pt for p in paras for run in p.runs if run.font.size}
 check(12.0 in sizes and 14.0 in sizes, f"字号含小四 12pt 与一级标题 14pt（实测 {sorted(sizes)}）")
