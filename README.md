@@ -73,7 +73,7 @@ ALTER TABLE reservation
 
 共 9 项功能（课程要求 5–10 项），F01–F08 为本期必做（P0），F09 为增强项（P1）。
 
-![功能清单](deliverables/images/feature-list.png)
+![软件功能清单（SR-01~SR-07）](deliverables/images/sr-list-1.png)
 
 | 编号 | 功能名称 | 所属角色 | 优先级 |
 | --- | --- | --- | --- |
@@ -128,8 +128,8 @@ yunqi-hotel-pms/
 │  └─ 2026学年…docx             教师下发原件（只读）
 ├─ deliverables/                对外交付件（第一次提交）
 │  ├─ 第14组_酒店客房预订与入住管理系统.docx    文件名按给定方案名（内部项目名云栖…）
-│  ├─ 第14组_酒店客房预订与入住管理系统_功能清单.xlsx
-│  └─ images/feature-list.png   300 dpi 表格截图
+│  ├─ 第14组_酒店客房预订与入住管理系统_软件功能清单.xlsx   28 条 SR
+│  └─ images/sr-list-1..4.png   300 dpi 表格截图（每页 7 条，A4 横向）
 ├─ tools/                       文档解析、交付件生成、种子数据生成、Web 冒烟测试
 ├─ sql/                         00_database / 01_schema / 02_constraints / 03_seed / 04_queries（均已实跑）
 │                               05_django_tables：Django 会话表（不跑 migrate）；90/91：备用账号脚本
@@ -188,7 +188,7 @@ python tools/smoke_web.py --mode real
 
 ```powershell
 # 1) 生成功能清单 Excel
-python tools/build_submission_xlsx.py
+python work/make_sr_pages.py   # 把 SR 表拆成 4 个打印页
 # 2) 渲染 300 dpi 表格截图（LibreOffice）到 deliverables/images/
 # 3) 生成 Word 汇总（内嵌上一步截图）
 python tools/build_submission_docx.py

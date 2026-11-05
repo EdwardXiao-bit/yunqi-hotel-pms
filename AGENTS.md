@@ -46,7 +46,6 @@ yunqi-hotel-pms/
 │  └─ 2026学年…docx / 报告封面文档.doc   教师下发原件，只读
 ├─ tools/                       docx/doc 解析 + 交付件生成脚本
 │  ├─ dump_docx.py / doc_extract.py  读教师原件
-│  ├─ build_submission_xlsx.py 生成功能清单 Excel
 │  ├─ build_submission_docx.py 生成 Word 汇总（内嵌截图）
 │  ├─ build_seed_sql.py        生成 sql/03_seed.sql（30 客户/96 预订/48 入住/96 支付/57 服务明细，含冲突自检）
 │  ├─ smoke_web.py             Web 冒烟测试：默认离线 sqlite（自建 13 表+假数据），`--mode real` 走真库
@@ -55,8 +54,8 @@ yunqi-hotel-pms/
 │  └─ verify_submission.py     两个交付件的结构与版式自检
 ├─ deliverables/                对外交付件（第一次提交）
 │  ├─ 第14组_酒店客房预订与入住管理系统.docx      文件名按给定方案名（内部项目名为云栖…）
-│  ├─ 第14组_酒店客房预订与入住管理系统_功能清单.xlsx
-│  └─ images/feature-list.png   300 dpi 表格截图，Word 内嵌源
+│  ├─ 第14组_酒店客房预订与入住管理系统_软件功能清单.xlsx   28 条 SR（组长改写版）
+│  └─ images/sr-list-1..4.png   300 dpi 表格截图（每页 7 条，Word 内嵌源）
 ├─ work/                        脚本中间产物（可清理）
 ├─ sql/                         00–04 均已写完并 psql 实跑通过（13 表版）；05_django_tables.sql（会话表，已执行）、90_readonly_role.sql（MCP 只读账号）、91_app_role.sql（Django 最小权限账号，已执行）
 └─ src/                         Django 6.1 工程（T4–T5 已落地）：manage.py、config/、core/、templates/、static/（vendor/adminlte 本地资源）
@@ -152,7 +151,7 @@ yunqi-hotel-pms/
 
 ### 已定案（留档，勿再讨论）
 - [x] 选题：给定方案六（酒店客房预订与入住管理系统）→ 本组题目定名 **云栖酒店客房预订与入住管理系统**，交付件文件名仍用方案名
-- [x] 第一次提交件（**v2，2026-10-30 晚按胡宇书文案重做**）：`deliverables/第14组_酒店客房预订与入住管理系统.docx`（A4 三页：一 项目名称含“方案来源：给定方案六”/ 二 项目描述含规则 1–5 / 三 功能清单+截图 / 四 数据库要点）+ `_功能清单.xlsx`（12 行 × 5 列、print_area A1:E12、无页脚行）+ `deliverables/images/feature-list.png`（2299×2815 px，300 dpi 单页）；`tools/verify_submission.py` **39 项断言全 PASS**；组长原稿「（修改版）」副本已删，避免误传
+- [x] 第一次提交件（**v3，2026-11-05 换用组长 SR 表**）：`deliverables/第14组_酒店客房预订与入住管理系统.docx`（A4 七页：一 项目名称含“方案来源：给定方案六”/ 二 项目描述含规则 1–5 / 三 功能清单=28 条 SR 横向 4 页截图 / 四 数据库要点）+ `_软件功能清单.xlsx`（31 行 × 7 列，SR-01~SR-28）+ `deliverables/images/sr-list-1..4.png`（3581×2131 px，300 dpi，A4 横向）；`tools/verify_submission.py` **46 项断言全 PASS**；旧 9 行 `_功能清单.xlsx`、`feature-list.png` 与 `tools/build_submission_xlsx.py` 已删除
 - [x] 项目描述、角色清单、9 项功能与异常清单 → `docs/01-功能清单.md`
 - [x] 技术栈：PostgreSQL 18 + Django 6.1 + AdminLTE 3.2（服务端模板渲染，单进程 8000）
 - [x] 区间排他约束落地方式：生成列 `during` + `EXCLUDE USING gist`（见 §4.1）

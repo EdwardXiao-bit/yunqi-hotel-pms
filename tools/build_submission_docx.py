@@ -3,7 +3,7 @@
 
 输出：deliverables/第14组_酒店客房预订与入住管理系统.docx
 （文件名按课程要求“第x组_给定方案名称”，项目名仍为 云栖酒店客房预订与入住管理系统）
-内容：一 项目名称 + 二 项目描述 + 三 功能清单（Excel 表格截图，1–2 张）+ 四 数据库要点
+内容：一 项目名称 + 二 项目描述 + 三 功能清单（SR 表 28 条，A4 横向分 4 页截图）+ 四 数据库要点
 文案：二、三 两节逐字取自 work/leader_docx_dump.txt（胡宇书修改版 docx 的文本转储）。
 版式：A4、正文小四号宋体、行距 20 磅、一级标题黑体 14pt、大标题黑体 18pt 加粗居中、页脚页码。
 """
@@ -11,6 +11,7 @@ import glob
 import os
 
 from docx import Document
+from docx.enum.section import WD_ORIENT, WD_SECTION
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls, qn
@@ -18,7 +19,10 @@ from docx.shared import Cm, Pt, RGBColor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "deliverables")
-OUT = os.path.join(OUT_DIR, "第14组_酒店客房预订与入住管理系统.docx")
+OUT = os.environ.get(
+    "SUBMISSION_DOCX_OUT",
+    os.path.join(OUT_DIR, "第14组_酒店客房预订与入住管理系统.docx"),
+)
 IMG_DIR = os.path.join(OUT_DIR, "images")
 
 PROJECT = "云栖酒店客房预订与入住管理系统"
@@ -46,7 +50,11 @@ DESC_PARAS = [
 ]
 
 # ---- 三、功能清单说明（逐字取自组长修改版）----
-FUNC_NOTE = "功能清单共9项，覆盖基础信息维护、业务办理、状态管理及查询统计。P0为核心功能，P1为完善功能。"
+FUNC_NOTE = (
+    "软件功能清单按需求规格（SR）形式组织，共 28 条功能需求（SR-01~SR-28），"
+    "逐条给出需求描述、约束条件、输入、处理与输出，覆盖本系统 9 项业务功能（F01–F09）"
+    "以及客户、前台、管理员三类角色能看到的页面。下表按每页 7 条分四页列出。"
+)
 
 # ---- 四、数据库要点（与 13 张表的设计口径一致）----
 DB_PARAS = [
@@ -109,14 +117,8 @@ def h1(doc, text, page_break=False):
 
 
 def figure_images():
-    """按顺序返回要嵌入的截图：第 1 页 feature-list.png，其后 feature-list-2.png 等（或 page-0002.png）。"""
-    imgs = []
-    first = os.path.join(IMG_DIR, "feature-list.png")
-    if os.path.exists(first):
-        imgs.append(first)
-    imgs.extend(sorted(glob.glob(os.path.join(IMG_DIR, "feature-list-*.png"))))
-    imgs.extend(sorted(glob.glob(os.path.join(IMG_DIR, "page-*.png"))))
-    return imgs
+    """SR 功能清单分页截图：sr-list-1.png … sr-list-4.png（每张 A4 横向一页，7 条需求）。"""
+    return sorted(glob.glob(os.path.join(IMG_DIR, "sr-list-*.png")))
 
 
 doc = Document()
@@ -164,26 +166,52 @@ for text in DESC_PARAS:
 h1(doc, "三、功能清单")
 body_para(doc, FUNC_NOTE, keep_with_next=True)
 
+# ---- 切到 A4 横向，逐页放 SR 表截图（每页 7 条需求）----
+sec = doc.add_section(WD_SECTION.NEW_PAGE)
+sec.orientation = WD_ORIENT.LANDSCAPE
+sec.page_width = Cm(29.7)
+sec.page_height = Cm(21.0)
+sec.top_margin = Cm(2.0)
+sec.bottom_margin = Cm(2.0)
+sec.left_margin = Cm(2.0)
+sec.right_margin = Cm(2.0)
+sec.footer_distance = Cm(1.2)
+LAND_W = Cm(29.7 - 2.0 * 2)  # 25.7cm
+
 imgs = figure_images()
 if not imgs:
-    raise SystemExit(f"缺少截图：{os.path.join(IMG_DIR, 'feature-list.png')}")
+    raise SystemExit(f"缺少截图：{os.path.join(IMG_DIR, 'sr-list-*.png')}")
 
 for i, img in enumerate(imgs, start=1):
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.paragraph_format.space_before = Pt(6)
-    p.paragraph_format.space_after = Pt(3)
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(2)
     p.paragraph_format.keep_with_next = True
-    p.add_run().add_picture(img, width=USABLE_W)
+    p.add_run().add_picture(img, width=LAND_W)
 
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.paragraph_format.space_after = Pt(6)
-    cap = "图 1　软件功能清单（Excel 表格截图）" if i == 1 else f"图 {i}　软件功能清单（Excel 表格截图·续）"
+    p.paragraph_format.space_after = Pt(0)
+    cap = f"图 {i}　软件功能清单（SR-{1 + (i - 1) * 7:02d}~SR-{min(28, i * 7):02d}）"
     set_run_font(p.add_run(cap), cn="宋体", size=10.5)
 
+    if i < len(imgs):
+        doc.add_page_break()
+
+# ---- 切回纵向，供「四、数据库要点」使用 ----
+sec = doc.add_section(WD_SECTION.NEW_PAGE)
+sec.orientation = WD_ORIENT.PORTRAIT
+sec.page_width = Cm(21.0)
+sec.page_height = Cm(29.7)
+sec.top_margin = Cm(2.54)
+sec.bottom_margin = Cm(2.54)
+sec.left_margin = Cm(3.17)
+sec.right_margin = Cm(3.17)
+sec.footer_distance = Cm(1.5)
+
 # ---- 四、数据库要点 ----
-h1(doc, "四、数据库要点", page_break=True)
+h1(doc, "四、数据库要点")
 for text in DB_PARAS:
     body_para(doc, text)
 
