@@ -210,3 +210,5 @@ python tools/verify_submission.py
 - 报告版式：A4、正文小四号宋体、行距 20 磅、标题小二号黑体、摘要 150 字左右，6 章结构固定。
 - 数据库表不少于 5 张（本项目 **13 张**，全部为正式表），功能点 5–10 项（本项目 9 项）。
 - 教师下发原件只读，派生文档另起文件名；所有 SQL 脚本必须可在演示库直接执行。
+
+[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/deepseek-ai/deepseek-harness)
