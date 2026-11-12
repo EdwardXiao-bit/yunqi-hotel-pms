@@ -1,7 +1,8 @@
 # 数据库系统原理课程设计 · 14 组
 
-> 项目根 `AGENTS.md`：给 AI 助手与组员共用的项目约定。**当前状态（2026-10-31）：选题、功能清单、技术栈、13 张表结构与 SQL 脚本均已定案并全部 psql 实跑通过（阶段 0–1 完成）；第一次提交件 v2（A4 三页，39 项断言全 PASS）待上传；Django 骨架 + 登录 + 三角色权限（T4–T5）已真库验收；**F02 房态维护、F03 可用房查询、F04 预订提交、F05 预订管理、F06 入住与续住办理、F07 退房结算、F08 房态看板、F01 房型与价格维护 + P13 客户与账号一览（P02/P03/P04/P06/P07/P08/P09/P10/P13）已落地并双模式冒烟通过**；**F09 经营统计报表（P11）+ P12 预订总览已于 10-31 完成 —— 9 项功能全部落地**。
-> 最后更新：2026-10-31（增值服务闭环：新增 P15 价目表 `/manage/service-items/` 与 P16 前台登记 `/reception/services/`，登记即写 `service_order` 并重算入住记录服务费；客户详情页显示消费明细；真库写入核对 `work/check_service_real.py` 16 项全过；冒烟 234 / 150。T13 异常用例与错误页收尾落地：E01–E11 提示可区分、403/404/500 接入、`work/check_errors_real.py` 24 项全过，冒烟 sqlite 205 / 真库只读 138。T12 的 F09 经营统计报表 + P12 预订总览落地：`src/core/views/reports.py` + `templates/manage/{reports,reservation_list}.html`、3 条路由，ECharts 5.6.1 本地资源；4 张图口径逐项对齐 `sql/04_queries.sql` 的 Q3/Q4-b/Q5/Q6-b；P12 只读 + CSV 导出；冒烟 sqlite 189 项 / 真库只读 131 项；`work/check_f09_real.py` 真库口径核对 21 项全过。**9 项功能 F01–F09 全部落地**）
+> 项目根 `AGENTS.md`：给 AI 助手与组员共用的项目约定。**当前状态（2026-11-12 冻结）：选题、功能清单、技术栈、13 张表结构与 SQL 脚本均已定案并全部 psql 实跑通过（阶段 0–1 完成）；第一次提交件 **v3.1**（A4 纵向 5 页，46 项断言全 PASS）待上传；Django 骨架 + 登录 + 三角色权限（T4–T5）已真库验收；**F02 房态维护、F03 可用房查询、F04 预订提交、F05 预订管理、F06 入住与续住办理、F07 退房结算、F08 房态看板、F01 房型与价格维护 + P13 客户与账号一览（P02/P03/P04/P06/P07/P08/P09/P10/P13）已落地并双模式冒烟通过**；**F09 经营统计报表（P11）+ P12 预订总览已于 10-31 完成 —— 9 项功能全部落地**。
+> 冻结说明（2026-11-12）：功能与界面不再改动，代码在分支 `feat/ui-restyle`（已推送，待合并 `main`）；当前基线冒烟 sqlite 234 / 真库只读 150；提交件 v3.1（A4 纵向 5 页、46 项断言）待上传 send2me；下一阶段 = 报告 6 章 + PPT（T15–T17）。
+> 最后更新：2026-10-31（历史记录，增值服务闭环：新增 P15 价目表 `/manage/service-items/` 与 P16 前台登记 `/reception/services/`，登记即写 `service_order` 并重算入住记录服务费；客户详情页显示消费明细；真库写入核对 `work/check_service_real.py` 16 项全过；冒烟 234 / 150。T13 异常用例与错误页收尾落地：E01–E11 提示可区分、403/404/500 接入、`work/check_errors_real.py` 24 项全过，冒烟 sqlite 205 / 真库只读 138。T12 的 F09 经营统计报表 + P12 预订总览落地：`src/core/views/reports.py` + `templates/manage/{reports,reservation_list}.html`、3 条路由，ECharts 5.6.1 本地资源；4 张图口径逐项对齐 `sql/04_queries.sql` 的 Q3/Q4-b/Q5/Q6-b；P12 只读 + CSV 导出；冒烟 sqlite 189 项 / 真库只读 131 项；`work/check_f09_real.py` 真库口径核对 21 项全过。**9 项功能 F01–F09 全部落地**）
 
 ## 1 项目事实（已确认）
 
@@ -39,10 +40,12 @@ yunqi-hotel-pms/
 │  ├─ 01-功能清单.md            项目名/描述/角色/9 项功能/异常清单（已建）
 │  ├─ 02-数据库设计.md          ER/关系、13 表结构、约束与索引、触发器与视图、数据样例（已建 2026-10-30）
 │  ├─ 03-实施计划.md            里程碑/WBS/风险/测试验收（已建）
-│  ├─ 04-报告撰写规范.md        6 章大纲与版式参数（待写）
+│  ├─ 04-报告撰写规范.md        6 章大纲与版式参数（待写，阶段 6 前置）
 │  ├─ 05-查询结果与测试记录.md   04_queries 的实测结果，报告 4 章素材（已建 2026-10-30）
-│  ├─ 页面约定.md               14 个业务页 + 3 个错误页的 URL/模板/表单字段/负责人契约（已建 2026-10-30，WBS T4 前置）
-│  ├─ 06-系统收尾核对.md        落地矩阵（P00–P13 + E1–E3）/ 13 项验证清单与实测 / 演示环境与 5 分钟动线 / 已知限制与演示库恢复（已建 2026-10-31）
+│  ├─ 页面约定.md               17 个编号页面（P00–P16）+ 3 个错误页的契约（已建 2026-10-30，WBS T4 前置）
+│  ├─ 07-三角色自验清单.md      三角色逐项自验步骤（已建 2026-10-31）
+│  ├─ 08-前端审查.md            前端审查与三轮修订记录（已建 2026-10-31）
+│  ├─ 06-系统收尾核对.md        落地矩阵（P00–P16 + E1–E3，20 个页面）/ 13 项验证清单与实测 / 演示环境与 5 分钟动线 / 已知限制与演示库恢复（已建 2026-10-31）
 │  └─ 2026学年…docx / 报告封面文档.doc   教师下发原件，只读
 ├─ tools/                       docx/doc 解析 + 交付件生成脚本
 │  ├─ dump_docx.py / doc_extract.py  读教师原件
@@ -106,7 +109,7 @@ yunqi-hotel-pms/
 ### 4.3 前端（AdminLTE 3.2 + Bootstrap 4.6）
 
 - 版本：AdminLTE **3.2**（[官方文档](https://adminlte.io/docs/3.2/)，仓库 ColorlibHQ/AdminLTE），底层 Bootstrap 4.6 + jQuery 3.5.1 + Popper 1.16.1，图标 FontAwesome 5。
-- 落位：`static/vendor/adminlte/{dist,plugins}/` 放官方包；`static/css/site.css` 只放少量覆盖样式（**视觉统一改版已按用户要求撤回，待功能全部确认后再做**）；**不用 CDN**（演示机可能断网）。
+- 落位：`static/vendor/adminlte/{dist,plugins}/` 放官方包；`static/css/site.css` 为覆盖层（**视觉统一改版在分支 `feat/ui-restyle`，待合并 `main`**；`main` 上仍是少量覆盖样式）；**不用 CDN**（演示机可能断网）。
 - 布局：`templates/base.html` + `templates/partials/{head,sidebar,navbar,footer,scripts}.html`，业务页 `{% extends 'base.html' %}` 只填 `{% block content %}`；登录页独立，不套后台布局。
 - 个性化裁剪（官方包默认带全部 demo 与插件）：删 `pages/` 下 demo 页；插件按需引用，保留 Bootstrap/jQuery/Popper/FontAwesome/DataTables/DateRangePicker(moment)，统计图表优先 ECharts（不经 jQuery 插件链）；不用 Summernote、CodeMirror、Dropzone、FullCalendar、jsGrid、flot、uPlot、sparkline、jqvmap、pace、filterizr、pdfmake 等。
 - 交互：后端 `messages` → Bootstrap alert / toastr 渲染；删除、取消预订等破坏性操作加 SweetAlert2 二次确认。
@@ -151,7 +154,7 @@ yunqi-hotel-pms/
 
 ### 已定案（留档，勿再讨论）
 - [x] 选题：给定方案六（酒店客房预订与入住管理系统）→ 本组题目定名 **云栖酒店客房预订与入住管理系统**，交付件文件名仍用方案名
-- [x] 第一次提交件（**v3，2026-11-05 换用组长 SR 表**）：`deliverables/第14组_酒店客房预订与入住管理系统.docx`（A4 七页：一 项目名称含“方案来源：给定方案六”/ 二 项目描述含规则 1–5 / 三 功能清单=28 条 SR 横向 4 页截图 / 四 数据库要点）+ `_软件功能清单.xlsx`（31 行 × 7 列，SR-01~SR-28）+ `deliverables/images/sr-list-1..4.png`（3581×2131 px，300 dpi，A4 横向）；`tools/verify_submission.py` **46 项断言全 PASS**；旧 9 行 `_功能清单.xlsx`、`feature-list.png` 与 `tools/build_submission_xlsx.py` 已删除
+- [x] 第一次提交件（**v3，2026-11-05 换用组长 SR 表**）：`deliverables/第14组_酒店客房预订与入住管理系统.docx`（**v3.1：A4 纵向 5 页** —— 一 项目名称含“方案来源：给定方案六”/ 二 项目描述含规则 1–5 / 三 功能清单=28 条 SR 的 4 张截图按 14.66cm 版心插入 / 四 数据库要点）+ `_软件功能清单.xlsx`（31 行 × 7 列，SR-01~SR-28）+ `deliverables/images/sr-list-1..4.png`（3581×2131 px，300 dpi，A4 横向渲染）；`tools/verify_submission.py` **46 项断言全 PASS**；旧 9 行 `_功能清单.xlsx`、`feature-list.png` 与 `tools/build_submission_xlsx.py` 已删除
 - [x] 项目描述、角色清单、9 项功能与异常清单 → `docs/01-功能清单.md`
 - [x] 技术栈：PostgreSQL 18 + Django 6.1 + AdminLTE 3.2（服务端模板渲染，单进程 8000）
 - [x] 区间排他约束落地方式：生成列 `during` + `EXCLUDE USING gist`（见 §4.1）
@@ -173,8 +176,8 @@ yunqi-hotel-pms/
 - [x] T4–T5 **真库验收**（2026-10-30 23:40）：`sql/91_app_role.sql` 建 `yunqi_app` 最小权限账号（**已执行**，口令由用户用 psql `\password` 自设、我不代持）+ `sql/05_django_tables.sql` 建 `django_session`（已执行）+ `.env` 配 `DB_USER=yunqi_app`；`python tools/smoke_web.py --mode real` **35 项全 PASS**（预检：14 张基表 / 3 条 EXCLUDE / 种子账号 3/3）。三处修复记录：① `sql/91` 原用 `\prompt` + `ALTER ROLE ... PASSWORD :'var'` 在 Windows 控制台下拿到空值 → 改用 psql 元命令 `\password`（连问两次、不回显、由 psql 加密）；② Django session 表不在 `sql/` 序列里 → 新增幂等 `05_django_tables.sql`（**不跑 migrate**，DDL 仍以 sql/ 为唯一事实源）；③ `room_block`/`service_item` 模型多带 `updated_at`（DB 无此列）→ 两模型写 `updated_at = None`，`work/check_models_vs_db.py` 复核字段对齐
 
 ### 进行中（按 `docs/03` WBS 推进）
-- [x] **系统收尾核对**（2026-10-31）：新增 `docs/06-系统收尾核对.md`（20 行 P00–P13 + E1–E3 落地矩阵、13 项可复跑验证清单、演示账号与 5 分钟动线、已知限制与演示库恢复命令）；`work/explain_reports.py` 补 F09 两条主查询 EXPLAIN（Q3 33.039/1.137 ms、Q5 5.765/0.548 ms，存 `work/explain_reports.txt`）；`tools/check_status_sync.py` 新增「段落里写过期的『未开始』」检查；`work/check_f04_real.py` 的 E03 断言补「请勿重复提交」。
-- [ ] **前端视觉统一改版**：**暂缓**（2026-10-31 用户要求「先把功能完善，之后再改前端」；已把当日改版整体回退到改版前状态，`site.css` 恢复为少量覆盖样式，等阶段 6 前功能确认后再统一做）
+- [x] **系统收尾核对**（2026-10-31）：新增 `docs/06-系统收尾核对.md`（20 行 P00–P16 + E1–E3 落地矩阵、13 项可复跑验证清单、演示账号与 5 分钟动线、已知限制与演示库恢复命令）；`work/explain_reports.py` 补 F09 两条主查询 EXPLAIN（Q3 33.039/1.137 ms、Q5 5.765/0.548 ms，存 `work/explain_reports.txt`）；`tools/check_status_sync.py` 新增「段落里写过期的『未开始』」检查；`work/check_f04_real.py` 的 E03 断言补「请勿重复提交」。
+- [x] **前端视觉统一改版**（2026-10-31，分支 `feat/ui-restyle`，**待合并 `main`**）：三轮修订（分区层次 / 侧栏悬停 / 剪影与入场动效 → KPI 四态识别色）+ 清掉界面里的施工状态与实现细节文案；`src/static/css/site.css` 覆盖层 681 行；冒烟仍 234/150
 - [~] **T6 起业务流程页**：**F03 可用房查询已完成（2026-10-31，P02 `/rooms/available/`）** —— `src/core/views/rooms.py` 走 `fn_available_rooms` 手写 SQL（sqlite 离线走等价 Python 实现）、`templates/customer/available_rooms.html`（表单 + 按房型汇总 + 房间明细 + 中文校验提示）、路由 `core:available_rooms`、侧边栏入口；真库 12-20~12-22 明细 35 行 = 函数 35 行；`tools/smoke_web.py` 扩到 **57 项**。**F04/F05 已于 10-31 完成（P03/P04/P06）**：`src/core/views/reservations.py`（提交 + 客户列表/详情/取消 + 前台 confirm/cancel/no_show 状态机）、4 模板、5 路由；下单前用 `_query_available` 预检查、写库 `transaction.atomic()`、23P01/23514/23505 映射中文；`work/check_f04_real.py` 真库事务内 15 项核对后回滚（96 → 96 行）。**F06 入住与续住已于 10-31 完成（P07）**：`src/core/views/checkin.py`（按预订入住 + 散客入住 + 续住）、`templates/reception/{checkin_new,checkin_walkin}.html`、2 条路由；入住写 `check_in_record` 与订单状态同一事务、不写房态，续住先查有效订单与 `room_block` 再改离店日；冒烟扩到 sqlite 111 / 真库只读 88，`work/check_f06_real.py` 真库事务内 22 项核对后回滚。**F07 退房结算已于 10-31 完成（P08）**：`src/core/views/checkout.py`（账单 = 房费 + 加收 + 服务费，`settled` 含押金，差额必须为 0 才退房；押金在入住时由 `record_deposit()` 记 `deposit` 流水）、`templates/reception/checkout_detail.html`、路由 `core:checkout_detail`，退房后订单置 `checked_out`、房间转 `cleaning`；冒烟扩到 sqlite 126 / 真库只读 92，`work/check_f07_real.py` 真库事务内 26 项核对后回滚。**F08 房态看板 + F02 房态维护已于 10-31 完成（P09）**：`src/core/views/board.py`（楼层/房型筛选、4 态配色、今日到店/在住/今日退房标记、清洁完成/置为清洁中/登记维修停用区间/结束维修四个动作）+ `templates/reception/room_board.html`、路由 `core:room_board`；维修区间先查有效订单再落 `room_block`（EXCLUDE + `fn_check_room_block_order` 双保险），房态动作在事务内写 `app.current_user_id` 让 `trg_room_status_log` 记录操作人；冒烟扩到 sqlite 141 / 真库只读 100，`work/check_f08_real.py` 真库事务内 22 项核对后回滚。**T11 的 F01 房型与价格维护（P10）+ P13 客户与账号一览已于 10-31 完成**：`src/core/views/manage.py`（房型增改停删 + 价格方案闭区间新增/删除 + 客户与账号只读列表）+ `templates/manage/{room_type_list,room_type_form,customer_list}.html` + 4 条路由；重叠方案被应用层预检查与数据库 `ex_rate_plan_no_overlap`（23P01）双重拦下、有引用房型只能停用（RESTRICT）；冒烟扩到 sqlite 169 / 真库只读 111，`work/check_f01_real.py` 真库事务内 22 项核对后回滚。**T12 的 F09 经营统计报表（P11，4 张 ECharts 图 + 日期/房型筛选）+ P12 预订总览（只读 + CSV 导出）已于 10-31 完成** —— `src/core/views/reports.py`（真库手写 SQL、离线 Python 兜底、口径对齐 Q3/Q4-b/Q5/Q6-b）+ `templates/manage/{reports,reservation_list}.html` + 3 条路由，ECharts 5.6.1 落本地 `src/static/vendor/echarts/`；冒烟扩到 sqlite 189 / 真库只读 131，`work/check_f09_real.py` 真库口径核对 21 项全过。**9 项功能（F01–F09）与 T13（E01–E11 异常用例 + 403/404/500 错误页）全部落地（2026-10-31，`work/check_errors_real.py` 24 项全过，冒烟 sqlite 205 / 真库只读 138）**；下一步进入阶段 6（报告 6 章 + PPT + 演示彩排，T15–T17）；每页按 `docs/页面约定.md` 的 P 编号与字段契约实现，复杂查询走手写 SQL；每完成一页更新 `docs/03` 三处状态（任务行 + 阶段行 + 状态说明行）与冒烟断言
 
 ### 仍需确认

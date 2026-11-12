@@ -2,6 +2,8 @@
 
 > 四川大学《数据库系统原理》课程设计（2026 学年）· **第 14 组**
 
+> **项目状态：已冻结（2026-11-12）** —— 功能与界面不再改动，下一阶段转入课程报告与 PPT。代码在分支 `feat/ui-restyle`（已推送，待合并 `main` 后开 PR）。
+
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-336791?logo=postgresql&logoColor=white)
 ![Django](https://img.shields.io/badge/Django-6.1-092E20?logo=django&logoColor=white)
 ![Bootstrap](https://img.shields.io/badge/AdminLTE-3.2%20%2B%20Bootstrap%204.6-7952B3?logo=bootstrap&logoColor=white)
@@ -71,7 +73,7 @@ ALTER TABLE reservation
 
 ## 4 功能清单
 
-共 9 项功能（课程要求 5–10 项），F01–F08 为本期必做（P0），F09 为增强项（P1）。
+共 9 项功能（课程要求 5–10 项），F01–F08 为本期必做（P0），F09 为增强项（P1）。提交件里的功能清单以 **28 条需求规格（SR-01–SR-28）** 给出，逐条对应到实现。
 
 ![软件功能清单（SR-01~SR-07）](deliverables/images/sr-list-1.png)
 
@@ -124,12 +126,14 @@ yunqi-hotel-pms/
 │  ├─ 03-实施计划.md            里程碑、WBS、风险、测试验收
 │  ├─ 05-查询结果与测试记录.md    Q1–Q8 实测结果（报告第 4 章素材）
 │  ├─ 06-系统收尾核对.md          落地矩阵 / 验证清单与实测 / 演示动线 / 已知限制（2026-10-31）
-│  ├─ 页面约定.md               14 个业务页 + 3 个错误页的 URL/模板/表单字段契约
+│  ├─ 页面约定.md               17 个编号页面（P00–P16）+ 3 个错误页的 URL/模板/表单字段契约
+│  ├─ 07-三角色自验清单.md      客户 / 前台 / 管理员逐项自验步骤（37 步）
+│  ├─ 08-前端审查.md            视觉审查记录：P0 施工痕迹、P1 外观问题与三轮修订
 │  └─ 2026学年…docx             教师下发原件（只读）
 ├─ deliverables/                对外交付件（第一次提交）
 │  ├─ 第14组_酒店客房预订与入住管理系统.docx    文件名按给定方案名（内部项目名云栖…）
 │  ├─ 第14组_酒店客房预订与入住管理系统_软件功能清单.xlsx   28 条 SR
-│  └─ images/sr-list-1..4.png   300 dpi 表格截图（每页 7 条，A4 横向）
+│  └─ images/sr-list-1..4.png   300 dpi 表格截图（每页 7 条；A4 横向渲染，按 14.66cm 版心插入 Word）
 ├─ tools/                       文档解析、交付件生成、种子数据生成、Web 冒烟测试
 ├─ sql/                         00_database / 01_schema / 02_constraints / 03_seed / 04_queries（均已实跑）
 │                               05_django_tables：Django 会话表（不跑 migrate）；90/91：备用账号脚本
@@ -137,7 +141,7 @@ yunqi-hotel-pms/
    ├─ manage.py  config/        settings / urls / wsgi / asgi
    ├─ core/                     models（13 表，managed=False）/ backends / roles / decorators / views
    ├─ templates/                base.html + partials/ + login.html + customer|reception|manage + errors/
-   └─ static/                   vendor/adminlte（23 文件 6.41 MiB，无 CDN）+ css/site.css + js/site.js
+   └─ static/                   vendor/adminlte（23 文件 2.7 MB，无 CDN）+ css/site.css + js/site.js
 ```
 
 本地运行（需要 `.env`，模板见 `.env.example`）：
@@ -164,7 +168,7 @@ python tools/smoke_web.py --mode real
 - [x] **第一次提交材料**（2026-11-12 截止）：功能清单 Excel + 表格截图 + Word 汇总（含「四、数据库要点」）
 - [x] 数据库设计：ER 关系、13 张表、约束与索引、种子数据（`sql/00–04` 全部 psql 实跑通过）
 - [x] 系统骨架：Django 工程 + AdminLTE 3.2 本地资源 + 登录 + 三角色权限 + 三端首页（T4–T5，2026-10-30 提前完成；离线与**真库**两种模式 `tools/smoke_web.py` 均 35 项全绿）
-- [x] **全部 9 项业务功能已落地**（F01–F09；页面 P00–P13）
+- [x] **全部 9 项业务功能已落地**（F01–F09；页面 P00–P16）
 - [x] **F03 可用房查询**（P02 `/rooms/available/`，2026-10-31）：走数据库函数 `fn_available_rooms`，按房型汇总余量与区间报价；真库 12-20~12-22 返回 35 间（与 `docs/05` Q1 一致），冒烟扩到 57 项
 - [x] **F04 预订提交 + F05 预订管理**（P03 `/reservations/new/`、P04 `/my/reservations/`、P06 `/reception/reservations/`，2026-10-31）：预约号自动生成、逐日成交价与总额落库、排他约束与封禁冲突映射中文提示；客户可查/取消本人订单，前台可确认/取消/登记未到店；`tools/smoke_web.py` 扩到 sqlite 87 项、真库只读 77 项，另用 `work/check_f04_real.py` 在真库事务内核对写入路径（15 项，回滚不留痕）
 - [x] **F06 入住与续住办理**（P07 `/reception/checkin/new/`，2026-10-31）：按预订号/手机号/姓名/房号检索待入住订单，校验状态与房态（清洁中/维修中/停用直接拦）、带出客户资料后写入入住记录并把订单置为已入住（同一事务）；散客入住自动建档下单并当场入住；在住列表可续住（先查其他有效订单与维修停用区间，再改离店日）；`tools/smoke_web.py` 扩到 sqlite 111 项 / 真库只读 88 项，另用 `work/check_f06_real.py` 在真库事务内核对 22 项后回滚
@@ -175,9 +179,11 @@ python tools/smoke_web.py --mode real
 - [x] **增值服务闭环**（2026-10-31）：管理端 P15 价目表（编码/单价/上下架 + 使用统计，有消费记录只能下架）、前台 P16 登记页（选在住客人 + 多行服务项，登记即写 `service_order` 并重算服务费与应收）、消费记录页（可检索、合计），客户「我的预订」详情显示消费明细；`work/check_service_real.py` 真库事务内 16 项全过；双模式冒烟 sqlite 234 / 真库只读 150
 - [x] **异常用例 E01–E11 与 403/404/500 错误页收尾**（T13，2026-10-31）：重复提交 / 他人占用 / 封禁区间 / 已入住不可取消 / 已结算 / 押金不足 / 删除被引用 / 封禁冲突 / 方案重叠 / 房态不可入住等提示均可区分；`work/check_errors_real.py` 真库事务内 24 项全过；双模式冒烟 sqlite 205 / 真库只读 138
 - [x] **系统收尾核对**（2026-10-31）：新增 `docs/06-系统收尾核对.md`（20 行页面×路由×模板矩阵、13 项可复跑验证清单、演示账号与 5 分钟动线、已知限制与演示库恢复命令）；同日修复 `work/check_f04_real.py` 的 E03 文案断言、补 F09 两条主查询的 `EXPLAIN`（`work/explain_reports.py`），闸门新增「段落里写过期的『未开始』」检查
-- [ ] **前端视觉统一改版**：暂缓（2026-10-31 用户要求「先把功能完善，之后再改前端」；当日改版已整体回退，`site.css` 仍为少量覆盖样式）
-- [ ] 报告 6 章与 PPT（阶段 6，T15–T17）
-- [ ] 统计报表、异常处理、测试与截图（12/05 – 12/11）
+- [x] **前端视觉统一改版**（2026-10-31，分支 `feat/ui-restyle`）：三轮修订（分区层次 / 侧栏悬停 / 剪影与入场动效 → KPI 四态识别色）+ 清掉界面里的施工状态与实现细节文案；`src/static/css/site.css` 覆盖层 681 行；**待合并 `main`**
+- [x] **P14 房间维护 / P15 增值服务价目表 / P16 增值服务登记与记录**（2026-10-31）：补上「只加房型不建房」的缺口，并给增值服务独立入口与消费记录；冒烟 234 / 150
+- [x] **提交件 v3.1**（2026-11-05）：Word A4 纵向 5 页，功能清单换成 28 条 SR 表（4 张截图按 14.66cm 插入），`tools/verify_submission.py` 46 项全 PASS；**仍待上传 send2me**
+- [x] 统计报表、异常处理、测试与截图（12/05 – 12/11）：实际于 10-31 完成
+- [ ] 报告 6 章与 PPT（阶段 6，T15–T17，2026-11-12 起）
 - [ ] 课程报告、PPT 与现场检查（第 15–16 周）
 
 排期、WBS 与风险清单见 [`docs/03-实施计划.md`](docs/03-实施计划.md)。
@@ -196,7 +202,7 @@ python tools/build_submission_docx.py
 python tools/verify_submission.py
 ```
 
-需要 Python 3.12 + `python-docx` + `openpyxl`；截图渲染使用 LibreOffice（或 WPS / Excel 导出图片替代）。
+需要 Python 3.12 + `python-docx` + `openpyxl`；截图渲染使用 LibreOffice（或 WPS / Excel 导出图片替代）。Word 全篇 A4 纵向，四张 SR 截图按版心宽度 14.66cm 插入（不切换页面方向）。
 
 ## 9 课程约束（团队内部约定）
 
