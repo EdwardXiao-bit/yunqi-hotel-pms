@@ -13,8 +13,14 @@ from openpyxl import load_workbook
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 D = os.path.join(ROOT, "deliverables")
-XLSX = os.path.join(D, "第14组_酒店客房预订与入住管理系统_功能清单.xlsx")
-DOCX = os.path.join(D, "第14组_酒店客房预订与入住管理系统.docx")
+XLSX = os.environ.get(
+    "SUBMISSION_XLSX",
+    os.path.join(D, "第14组_酒店客房预订与入住管理系统_软件功能清单.xlsx"),
+)
+DOCX = os.environ.get(
+    "SUBMISSION_DOCX",
+    os.path.join(D, "第14组_酒店客房预订与入住管理系统.docx"),
+)
 
 NAMES = [
     "房型与价格维护", "房间与基础信息管理", "可用房间查询", "预订提交", "预订管理",
@@ -28,31 +34,22 @@ def check(cond, msg):
     if not cond:
         ok = False
 
-# ---------- xlsx ----------
+# ---------- xlsx（软件功能清单 SR 表） ----------
 wb = load_workbook(XLSX)
-ws = wb["功能清单"]
-check(ws.max_row == 12 and ws.max_column == 5, f"sheet 功能清单 尺寸 {ws.max_row}x{ws.max_column}（期望 12x5 = 抬头2 + 表头1 + 数据9，无脚注行）")
-check("云栖酒店客房预订与入住管理系统" in (ws["A1"].value or ""), "A1 抬头含项目名称")
-check("第 14 组" in (ws["A2"].value or ""), f"A2 抬头含组号/组员（{ws['A2'].value}）")
-heads = [ws.cell(row=3, column=c).value for c in range(1, 6)]
-check(heads == ["功能编号", "功能名称", "功能描述", "所属角色", "优先级"], f"表头 {heads}")
-ids = [ws.cell(row=r, column=1).value for r in range(4, 13)]
-check(ids == [f"F{i:02d}" for i in range(1, 10)], f"功能编号 {ids}")
-names = [ws.cell(row=r, column=2).value for r in range(4, 13)]
-check(names == NAMES, f"功能名称 {names}")
-empty = [(r, c) for r in range(4, 13) for c in range(1, 6) if not ws.cell(row=r, column=c).value]
+check("软件功能清单" in wb.sheetnames, f"sheet 名含「软件功能清单」（{wb.sheetnames}）")
+ws = wb["软件功能清单"]
+check(ws.max_row == 31 and ws.max_column == 7, f"sheet 尺寸 {ws.max_row}x{ws.max_column}（期望 31x7 = 抬头2 + 表头1 + 28 条 SR）")
+check("软件功能清单" in (ws["A1"].value or "") and "云栖酒店" in (ws["A1"].value or ""), "A1 抬头含表名与项目名称")
+check("第14组" in (ws["A2"].value or "") and "客户" in (ws["A2"].value or ""), f"A2 抬头含组号与角色（{ws['A2'].value}）")
+heads = [ws.cell(row=3, column=c).value for c in range(1, 8)]
+check(heads == ["需求编号", "需求名称", "需求描述", "约束条件", "输入", "处理", "输出"], f"表头 {heads}")
+ids = [ws.cell(row=r, column=1).value for r in range(4, 32)]
+check(ids == [f"SR-{i:02d}" for i in range(1, 29)], f"需求编号 {ids[:3]} … {ids[-1]}（共 {len(ids)} 条）")
+empty = [(r, c) for r in range(4, 32) for c in range(1, 8) if not ws.cell(row=r, column=c).value]
 check(not empty, f"数据区无空单元格（空: {empty}）")
-prior = [ws.cell(row=r, column=5).value for r in range(4, 13)]
-check(prior == ["P0"] * 8 + ["P1"], f"优先级 {prior}")
-lens = [len(ws.cell(row=r, column=3).value) for r in range(4, 13)]
-check(min(lens) >= 80, f"描述列均为长文案（最短 {min(lens)} 字，最长 {max(lens)} 字）")
-check(ws.cell(row=12, column=1).value == "F09", "末行是 F09（第 12 行），无脚注行")
-check(all(ws.cell(row=r, column=3).alignment.wrap_text for r in range(4, 13)), "描述列已开自动换行")
-heights = [ws.row_dimensions[r].height for r in range(4, 13)]
-check(all(h and h > 20 for h in heights), f"数据行行高已按文案撑开 {heights}")
-check(ws.page_setup.orientation == "portrait", "打印方向 portrait")
-check(ws.print_area.replace("$", "").endswith("A1:E12"), f"打印区域 {ws.print_area}（期望 A1:E12）")
-check(ws.sheet_properties.pageSetUpPr is not None and ws.sheet_properties.pageSetUpPr.fitToPage, "已开 fitToPage（A4 一页宽）")
+lens = [len(ws.cell(row=r, column=2).value) for r in range(4, 32)]
+check(min(lens) >= 4, f"需求名称列均非空（最短 {min(lens)} 字）")
+check(all(ws.cell(row=r, column=3).alignment.wrap_text for r in range(4, 32)), "需求描述列已开自动换行")
 
 # ---------- docx ----------
 doc = Document(DOCX)
@@ -70,19 +67,25 @@ for needle in ["一、项目名称", "二、项目描述", "三、功能清单",
 # 组长文案已逐字落地
 rule_paras = [t for t in texts if t.startswith("（") and "）" in t[:4]]
 check(len(rule_paras) == 5, f"核心业务规则 5 条（实测 {len(rule_paras)} 条）")
-check(any(t.startswith("功能清单共9项") for t in texts), "功能清单说明为组长原文")
+check(any(t.startswith("软件功能清单按需求规格") for t in texts), "功能清单说明为 SR 口径")
 check(any("13 张表" in t and "room_block" in t and "reservation_price" in t for t in texts), "数据库要点含 13 表 + 新增两表")
 check(any("EXCLUDE USING gist" in t and "during" in t for t in texts), "数据库要点含区间排他约束")
 
-# 截图（1–2 张，宽度 = A4 可用宽度 14.66cm）
+# 截图：SR 表 4 页，按版心宽度缩小插入（不改页面尺寸，全篇 A4 纵向 14.66cm）
 n_img = len(doc.inline_shapes)
-check(1 <= n_img <= 2, f"内嵌图片数 {n_img}（1–2 张：Excel 截图分页时逐页嵌入）")
+check(n_img == 4, f"内嵌图片数 {n_img}（期望 4：SR 表分 4 页）")
 w_list = [round(s.width.cm, 2) for s in doc.inline_shapes]
-check(all(abs(w - 14.66) < 0.1 for w in w_list), f"图片宽度 {w_list}cm（期望 14.66cm）")
+check(all(abs(w - 14.66) < 0.1 for w in w_list), f"图片宽度 {w_list}cm（期望 14.66cm，版心宽）")
 caps = [t for t in texts if t.startswith("图 ")]
 check(len(caps) == n_img and caps and caps[0].startswith("图 1"), f"图注 {caps}")
 h_list = [round(s.height.cm, 2) for s in doc.inline_shapes]
-check(all(h < 24.6 for h in h_list), f"图片高度 {h_list}cm 未超版心高度")
+check(all(h < 24.6 for h in h_list), f"图片高度 {h_list}cm 未超纵向版心高度")
+check(any("28 条功能需求" in t for t in texts), "功能清单说明写明 28 条功能需求")
+check(any("SR-01~SR-28" in t for t in texts), "功能清单说明写明 SR-01~SR-28")
+secs = doc.sections
+check(len(secs) == 1, f"节数 {len(secs)}（期望 1：全篇 A4 纵向，不改页面尺寸）")
+check(all(round(s.page_width.cm, 1) == 21.0 and round(s.page_height.cm, 2) == 29.7 for s in secs),
+      f"所有节均为 A4 纵向（{[(round(s.page_width.cm,1), round(s.page_height.cm,1)) for s in secs]}）")
 
 sizes = {run.font.size.pt for p in paras for run in p.runs if run.font.size}
 check(12.0 in sizes and 14.0 in sizes, f"字号含小四 12pt 与一级标题 14pt（实测 {sorted(sizes)}）")
